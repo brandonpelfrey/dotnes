@@ -92,7 +92,7 @@ namespace DotNES
         }
 
         #endregion
-        
+
         #region OpCodes
         
         private void initializeOpCodeTable()
@@ -119,13 +119,29 @@ namespace DotNES
         // Implementation details : http://www.obelisk.demon.co.uk/6502/reference.html
 
         #region Jumps
-        public void JMP_Absolute()
+        [OpCode(opcode = 0x4C, name ="JMP")]
+        public int JMP_Absolute()
         {
-            // General OpCode Implementation
-            // Perform OpCode Logic
-            // Update any flags
-            // Update PC based on jump address or opcode+operand size
+            _PC = argOne16();
+            return 3;
         }
+
+        [OpCode(opcode = 0x6C, name = "JMP")]
+        public int JMP_Indirect()
+        {
+            _PC = memory.read16(argOne16());
+            return 5;
+        }
+
+        [OpCode(opcode = 0x20, name = "JSR")]
+        public int JSR_Absolute()
+        {
+            incrementStackPointer();
+            memory.write16(_S, (ushort)(_PC + 3));
+            _PC = argOne16();
+            return 6;
+        }
+
         #endregion
 
         #region Arithmetic
@@ -139,6 +155,149 @@ namespace DotNES
             setFlag(StatusFlag.Decimal, 0);
             _PC += 1;
             return 2;
+        }
+        #endregion
+
+        #region Load
+
+        #region LDA
+
+        [OpCode(opcode = 0xA9, name = "LDA")]
+        private int LDA_Immediate()
+        {
+            _A = argOne();
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xA5, name = "LDA")]
+        private int LDA_ZeroPage()
+        {
+            _A = memory.read8(argOne());
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xB5, name = "LDA")]
+        private int LDA_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            _A = memory.read8(address);
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xAD, name = "LDA")]
+        private int LDA_Absolute()
+        {
+            _A = memory.read8(argOne16());
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xBD, name = "LDA")]
+        private int LDA_AbsoluteX()
+        {
+            return LDA_AbsoluteWithRegister(_X);
+        }
+
+        [OpCode(opcode = 0xB9, name = "LDA")]
+        private int LDA_AbsoluteY()
+        {
+            return LDA_AbsoluteWithRegister(_Y);
+        }
+
+        private int LDA_AbsoluteWithRegister(ushort registerValue)
+        {
+            ushort arg = argOne16();
+            ushort address = (ushort)(arg + registerValue);
+            _A = memory.read8(address);
+
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 3;
+
+            if (((arg ^ address) & 0xFF00) == 0)
+            {
+                return 4; 
+            }
+            else
+            {
+                return 5; //Additional cycle taken if crossing a page boundary while adding register value
+            }
+
+        }
+
+        [OpCode(opcode = 0xA1, name = "LDA")]
+        private int LDA_IndirectX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            _A = memory.read8(memory.read16(address));
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xB1, name = "LDA")]
+        private int LDA_IndirectY()
+        {
+            ushort addressWithoutY = memory.read16(argOne());
+            ushort addressWithY = (ushort)(addressWithoutY + _Y);
+            _A = memory.read8(memory.read16(addressWithY));
+
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 2;
+
+            if (((addressWithoutY ^ addressWithY) & 0xFF00) == 0)
+            {
+                return 5;
+            }
+            else
+            {
+                return 6; //Additional cycle taken if crossing a page boundary while adding Y
+            }
+        }
+        #endregion
+
+        #endregion
+
+        #region OpcodeHelpers
+        public byte argOne()
+        {
+            return memory.read8((ushort)(_PC + 1));
+        }
+
+        public ushort argOne16()
+        {
+            return memory.read16((ushort)(_PC + 1));
+        }
+
+        public byte argTwo()
+        {
+            return memory.read8((ushort)(_PC + 2));
+        }
+
+        private void incrementStackPointer()
+        {
+            _S += 2; // 16 bit addressing requires stack point to be incremented by 2;
+        }
+
+        private void setZeroForOperand(byte operand) {
+            setFlag(StatusFlag.Zero, operand == 0 ? (byte)1 : (byte)0);
+        }
+
+        private void setNegativeForOperand(byte operand) {
+            setFlag(StatusFlag.Negative, (byte)( ( operand >> 7 ) ) );
         }
         #endregion
 
