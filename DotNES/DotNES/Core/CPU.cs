@@ -401,6 +401,69 @@ namespace DotNES
 
         #endregion
 
+        #region Transfer
+        [OpCode(opcode = 0xAA, name = "TAX")]
+        private int TAX()
+        {
+            _X = _A;
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xA8, name = "TAY")]
+        private int TAY()
+        {
+            _Y = _A;
+            setZeroForOperand(_Y);
+            setNegativeForOperand(_Y);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xBA, name = "TSX")]
+        private int TSX()
+        {
+            _X = _S;
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x8A, name = "TXA")]
+        private int TXA()
+        {
+            _A = _X;
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x9A, name = "TXS")]
+        private int TXS()
+        {
+            _S = _X;
+            setZeroForOperand(_S);
+            setNegativeForOperand(_S);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x98, name = "TYA")]
+        private int TYA()
+        {
+            _A = _Y;
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 1;
+            return 2;
+        }
+
+        #endregion
+
         #region OpcodeHelpers
         private byte argOne()
         {
