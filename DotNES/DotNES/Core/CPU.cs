@@ -225,15 +225,14 @@ namespace DotNES
             setNegativeForOperand(_A);
             _PC += 3;
 
-            if (((arg ^ address) & 0xFF00) == 0)
+            if (samePage(arg ,address))
             {
                 return 4; 
             }
             else
             {
-                return 5; //Additional cycle taken if crossing a page boundary while adding register value
+                return 5;
             }
-
         }
 
         [OpCode(opcode = 0xA1, name = "LDA")]
@@ -258,15 +257,147 @@ namespace DotNES
             setNegativeForOperand(_A);
             _PC += 2;
 
-            if (((addressWithoutY ^ addressWithY) & 0xFF00) == 0)
+            if (samePage(addressWithY, addressWithoutY))
             {
                 return 5;
             }
             else
             {
-                return 6; //Additional cycle taken if crossing a page boundary while adding Y
+                return 6;
             }
         }
+        #endregion
+
+        #region LDX
+
+        [OpCode(opcode = 0xA2, name = "LDX")]
+        public int LDX_Immediate()
+        {
+            _X = argOne();
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xA6, name = "LDX")]
+        public int LDX_ZeroPage()
+        {
+            _X = memory.read8(argOne());
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xB6, name = "LDX")]
+        public int LDX_ZeroPageY()
+        {
+            ushort address = (ushort)(memory.read16(argOne()) + _Y);
+            _X = memory.read8(address);
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xAE, name = "LDX")]
+        public int LDX_Absolute()
+        {
+            _X = memory.read8(argOne16());
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xBE, name = "LDX")]
+        public int LDX_AbsoluteY()
+        {
+            ushort arg = argOne16();
+            ushort address = (ushort)(arg + _Y);
+            _X = memory.read8(address);
+
+            setZeroForOperand(_X);
+            setNegativeForOperand(_X);
+            _PC += 3;
+
+            if (samePage(arg, address))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
+        #endregion
+
+        #region LDY
+
+        [OpCode(opcode = 0xA0, name = "LDY")]
+        public int LDY_Immediate()
+        {
+            _Y = argOne();
+            setZeroForOperand(_Y);
+            setNegativeForOperand(_Y);
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xA4, name = "LDX")]
+        public int LDY_ZeroPage()
+        {
+            _Y = memory.read8(argOne());
+            setZeroForOperand(_Y);
+            setNegativeForOperand(_Y);
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xB4, name = "LDX")]
+        public int LDY_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            _Y = memory.read8(address);
+            setZeroForOperand(_Y);
+            setNegativeForOperand(_Y);
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xAC, name = "LDX")]
+        public int LDY_Absolute()
+        {
+            _Y = memory.read8(argOne16());
+            setZeroForOperand(_Y);
+            setNegativeForOperand(_Y);
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xBC, name = "LDX")]
+        public int LDY_AbsoluteX()
+        {
+            ushort arg = argOne16();
+            ushort address = (ushort)(arg + _X);
+            _Y = memory.read8(address);
+
+            setZeroForOperand(_Y);
+            setNegativeForOperand(_Y);
+            _PC += 3;
+
+            if (samePage(arg, address))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
         #endregion
 
         #endregion
@@ -290,6 +421,11 @@ namespace DotNES
         private void incrementStackPointer()
         {
             _S += 2; // 16 bit addressing requires stack point to be incremented by 2;
+        }
+
+        private bool samePage(ushort addressOne, ushort addressTwo)
+        {
+            return ((addressOne ^ addressTwo) & 0xFF00) == 0;
         }
 
         private void setZeroForOperand(byte operand) {
