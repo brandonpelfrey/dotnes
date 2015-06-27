@@ -136,8 +136,7 @@ namespace DotNES
         [OpCode(opcode = 0x20, name = "JSR")]
         public int JSR_Absolute()
         {
-            incrementStackPointer();
-            memory.write16(_S, (ushort)(_PC + 3));
+            pushStack((ushort)(_PC + 3));
             _PC = argOne16();
             return 6;
         }
@@ -149,7 +148,7 @@ namespace DotNES
         #endregion
 
         #region Flag Manipulation
-        [OpCode(name="CLD", opcode = 0xD8)]
+        [OpCode(opcode = 0xD8, name = "CLD")]
         private int CLD_Implicit()
         {
             setFlag(StatusFlag.Decimal, 0);
@@ -418,9 +417,17 @@ namespace DotNES
             return memory.read8((ushort)(_PC + 2));
         }
 
-        private void incrementStackPointer()
+        private void pushStack(ushort val)
         {
-            _S += 2; // 16 bit addressing requires stack point to be incremented by 2;
+            _S -= 2; // 16 bit addressing requires stack point to be decremented by 2;
+            memory.write16(_S, val);
+        }
+
+        private ushort popStack()
+        {
+            ushort val = memory.read16(_S);
+            _S -= 2; // 16 bit addressing requires stack point to be incremented by 2;
+            return val;
         }
 
         private bool samePage(ushort addressOne, ushort addressTwo)
