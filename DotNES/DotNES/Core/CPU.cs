@@ -452,8 +452,7 @@ namespace DotNES
         [OpCode(opcode = 0xB6, name = "LDX")]
         private int LDX_ZeroPageY()
         {
-            ushort address = (ushort)(memory.read16(argOne()) + _Y);
-            _X = memory.read8(address);
+            _X = memory.read8((ushort) ( (argOne() + _Y ) & 0xFF ));
             setZeroForOperand(_X);
             setNegativeForOperand(_X);
             _PC += 2;
