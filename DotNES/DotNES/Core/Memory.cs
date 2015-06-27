@@ -14,7 +14,17 @@ namespace DotNES.Core
         /// </summary>
         /// <param name="addr">The 16-bit address at which to set a value.</param>
         /// <param name="val">The byte to write at the given location.</param>
-        public void Byte(ushort addr, byte val)
+        public void write8(ushort addr, byte val)
+        {
+            throw new NotImplementedException();
+        }
+
+        public byte read8(ushort addr)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ushort read16(ushort addr)
         {
             throw new NotImplementedException();
         }

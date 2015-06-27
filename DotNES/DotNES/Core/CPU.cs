@@ -74,7 +74,7 @@ namespace DotNES
             int bit = (int)flag;
 
             // Get rid of the bit currently there, and put our bit there.
-            _P = (byte)( (_P & (~(1 << bit))) | ((val & 1) << bit) );
+            _P = (byte)((_P & (~(1 << bit))) | ((val & 1) << bit));
         }
 
         byte getFlag(StatusFlag flag)
@@ -91,6 +91,28 @@ namespace DotNES
 
         #endregion
 
+        #region OpCodes
+
+        // Implementation details : http://www.obelisk.demon.co.uk/6502/reference.html
+
+        #region Jumps
+        public void JMP_Absolute()
+        {
+            // General OpCode Implementation
+            // Perform OpCode Logic
+            // Update any flags
+            // Update PC based on jump address or opcode+operand size
+        }
+        #endregion
+
+        #region Arithmetic
+
+        #endregion
+
+        #endregion
+
+        #region System Startup and Reset
+
         /// <summary>
         /// Set up the CPU to be in the state it would be after a normal power cycle.
         /// Details sampled from physical hardware: http://wiki.nesdev.com/w/index.php/CPU_power_up_state
@@ -102,8 +124,8 @@ namespace DotNES
             _S = 0xFD;
 
             // Set up some of the memory-mapped stuff
-            memory.Byte(0x4017, 0x00); // (frame irq enabled)
-            memory.Byte(0x4015, 0x00); // (all channels disabled)
+            memory.write8(0x4017, 0x00); // (frame irq enabled)
+            memory.write8(0x4015, 0x00); // (all channels disabled)
         }
 
         /// <summary>
@@ -122,9 +144,9 @@ namespace DotNES
             setFlag(StatusFlag.InterruptDisable, 1);
 
             // Silence the APU
-            memory.Byte(0x4015, 0x00);
+            memory.write8(0x4015, 0x00);
         }
 
-
+        #endregion
     }
 }
