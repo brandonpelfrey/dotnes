@@ -193,6 +193,130 @@ namespace DotNES
         }
         #endregion
 
+        #region Store
+
+        #region STA
+        [OpCode(opcode = 0x85, name = "STA")]
+        private int STA_ZeroPage()
+        {
+            memory.write8(argOne(), _A);
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x95, name = "STA")]
+        private int STA_ZeroPageX()
+        {
+            memory.write8((ushort)( ( argOne() + _X ) & 0xFF ), _A);
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x8D, name = "STA")]
+        private int STA_Absolute()
+        {
+            memory.write8(argOne16(), _A);
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x9D, name = "STA")]
+        private int STA_AbsoluteX()
+        {
+            memory.write8((ushort)(argOne16() + _X), _A);
+            _PC += 3;
+            return 5;
+        }
+
+        [OpCode(opcode = 0x99, name = "STA")]
+        private int STA_AbsoluteY()
+        {
+            memory.write8((ushort)(argOne16() + _Y), _A);
+            _PC += 3;
+            return 5;
+        }
+
+        [OpCode(opcode = 0x81, name = "STA")]
+        private int STA_IndirectX()
+        {
+            ushort address = (ushort) ((argOne() + _X) & 0xFF);
+            ushort indirectAddress = memory.read16(address);
+            memory.write8(indirectAddress, _A);
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x91, name = "STA")]
+        private int STA_IndirectY()
+        {
+            ushort address = argOne();
+            ushort indirectAddress = (ushort) (memory.read16(address) + _Y);
+            memory.write8(indirectAddress, _A);
+            _PC += 2;
+            return 6;
+        }
+
+
+        #endregion
+
+        #region STX
+
+        [OpCode(opcode = 0x86, name = "STX")]
+        private int STX_ZeroPage()
+        {
+            memory.write8(argOne(), _X);
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x96, name = "STX")]
+        private int STX_ZeroPageY()
+        {
+            memory.write8((ushort) ((argOne() + _Y) & 0xFF), _X);
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x8E, name = "STX")]
+        private int STX_Absolute()
+        {
+            memory.write8(argOne16(), _X);
+            _PC += 3;
+            return 4;
+        }
+
+        #endregion
+
+        #region STY
+
+        [OpCode(opcode = 0x84, name = "STY")]
+        private int STY_ZeroPage()
+        {
+            memory.write8(argOne(), _Y);
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x94, name = "STY")]
+        private int STY_ZeroPageX()
+        {
+            memory.write8((ushort)((argOne() + _X) & 0xFF), _Y);
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x8C, name = "STY")]
+        private int STY_Absolute()
+        {
+            memory.write8(argOne16(), _Y);
+            _PC += 3;
+            return 4;
+        }
+
+        #endregion
+
+        #endregion
+
         #region Load
 
         #region LDA
