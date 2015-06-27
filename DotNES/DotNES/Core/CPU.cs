@@ -131,7 +131,7 @@ namespace DotNES
             _A = argOne();
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 1;
+            _PC += 2;
             return 2;
         }
 
@@ -140,7 +140,7 @@ namespace DotNES
             _A = memory.read8(argOne());
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 1;
+            _PC += 2;
             return 3;
         }
 
@@ -150,7 +150,7 @@ namespace DotNES
             _A = memory.read8(address);
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 1;
+            _PC += 2;
             return 4;
         }
 
@@ -159,7 +159,7 @@ namespace DotNES
             _A = memory.read8(argOne16());
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 2;
+            _PC += 3;
             return 4;
         }
 
@@ -181,7 +181,7 @@ namespace DotNES
 
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 2;
+            _PC += 3;
 
             if (((arg ^ address) & 0xFF00) == 0)
             {
@@ -200,7 +200,7 @@ namespace DotNES
             _A = memory.read8(memory.read16(address));
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 1;
+            _PC += 2;
             return 6;
         }
 
@@ -212,7 +212,7 @@ namespace DotNES
 
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
-            _PC += 1;
+            _PC += 2;
 
             if (((addressWithoutY ^ addressWithY) & 0xFF00) == 0)
             {
