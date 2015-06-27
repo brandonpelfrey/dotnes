@@ -136,7 +136,7 @@ namespace DotNES
         [OpCode(opcode = 0x20, name = "JSR")]
         private int JSR_Absolute()
         {
-            pushStack((ushort)(_PC + 3));
+            pushStack16((ushort)(_PC + 3));
             _PC = argOne16();
             return 6;
         }
@@ -154,6 +154,42 @@ namespace DotNES
             setFlag(StatusFlag.Decimal, 0);
             _PC += 1;
             return 2;
+        }
+        #endregion
+
+        #region Stack
+        [OpCode(opcode = 0x48, name = "PHA")]
+        private int PHA()
+        {
+            pushStack8(_A);
+            _PC += 1;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x08, name = "PHP")]
+        private int PHP()
+        {
+            pushStack8(_P);
+            _PC += 1;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x68, name = "PLA")]
+        private int PLA()
+        {
+            _A = popStack8();
+            setZeroForOperand(_A);
+            setNegativeForOperand(_A);
+            _PC += 1;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x28, name = "PLP")]
+        private int PLP()
+        {
+            _P = popStack8();
+            _PC += 1;
+            return 4;
         }
         #endregion
 
@@ -480,17 +516,35 @@ namespace DotNES
             return memory.read8((ushort)(_PC + 2));
         }
 
-        private void pushStack(ushort val)
+        private void pushStack16(ushort val)
         {
-            _S -= 2; // 16 bit addressing requires stack point to be decremented by 2;
-            memory.write16(_S, val);
+            _S -= 2;
+            memory.write16(stackAddressOf(_S), val);
         }
 
-        private ushort popStack()
+        private ushort popStack16()
         {
-            ushort val = memory.read16(_S);
-            _S -= 2; // 16 bit addressing requires stack point to be incremented by 2;
+            ushort val = memory.read16(stackAddressOf(_S));
+            _S += 2;
             return val;
+        }
+
+        private void pushStack8(byte val)
+        {
+            _S -= 1;
+            memory.write16(stackAddressOf(_S), val);
+        }
+
+        private byte popStack8()
+        {
+            byte val = memory.read8(stackAddressOf(_S));
+            _S += 1;
+            return val;
+        }
+
+        private ushort stackAddressOf(byte stackPointer)
+        {
+            return (ushort)(0x0100 + stackPointer);
         }
 
         private bool samePage(ushort addressOne, ushort addressTwo)
