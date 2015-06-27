@@ -120,21 +120,21 @@ namespace DotNES
 
         #region Jumps
         [OpCode(opcode = 0x4C, name ="JMP")]
-        public int JMP_Absolute()
+        private int JMP_Absolute()
         {
             _PC = argOne16();
             return 3;
         }
 
         [OpCode(opcode = 0x6C, name = "JMP")]
-        public int JMP_Indirect()
+        private int JMP_Indirect()
         {
             _PC = memory.read16(argOne16());
             return 5;
         }
 
         [OpCode(opcode = 0x20, name = "JSR")]
-        public int JSR_Absolute()
+        private int JSR_Absolute()
         {
             pushStack((ushort)(_PC + 3));
             _PC = argOne16();
@@ -270,7 +270,7 @@ namespace DotNES
         #region LDX
 
         [OpCode(opcode = 0xA2, name = "LDX")]
-        public int LDX_Immediate()
+        private int LDX_Immediate()
         {
             _X = argOne();
             setZeroForOperand(_X);
@@ -280,7 +280,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xA6, name = "LDX")]
-        public int LDX_ZeroPage()
+        private int LDX_ZeroPage()
         {
             _X = memory.read8(argOne());
             setZeroForOperand(_X);
@@ -290,7 +290,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xB6, name = "LDX")]
-        public int LDX_ZeroPageY()
+        private int LDX_ZeroPageY()
         {
             ushort address = (ushort)(memory.read16(argOne()) + _Y);
             _X = memory.read8(address);
@@ -301,7 +301,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xAE, name = "LDX")]
-        public int LDX_Absolute()
+        private int LDX_Absolute()
         {
             _X = memory.read8(argOne16());
             setZeroForOperand(_X);
@@ -311,7 +311,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xBE, name = "LDX")]
-        public int LDX_AbsoluteY()
+        private int LDX_AbsoluteY()
         {
             ushort arg = argOne16();
             ushort address = (ushort)(arg + _Y);
@@ -336,7 +336,7 @@ namespace DotNES
         #region LDY
 
         [OpCode(opcode = 0xA0, name = "LDY")]
-        public int LDY_Immediate()
+        private int LDY_Immediate()
         {
             _Y = argOne();
             setZeroForOperand(_Y);
@@ -346,7 +346,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xA4, name = "LDX")]
-        public int LDY_ZeroPage()
+        private int LDY_ZeroPage()
         {
             _Y = memory.read8(argOne());
             setZeroForOperand(_Y);
@@ -356,7 +356,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xB4, name = "LDX")]
-        public int LDY_ZeroPageX()
+        private int LDY_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
             _Y = memory.read8(address);
@@ -367,7 +367,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xAC, name = "LDX")]
-        public int LDY_Absolute()
+        private int LDY_Absolute()
         {
             _Y = memory.read8(argOne16());
             setZeroForOperand(_Y);
@@ -377,7 +377,7 @@ namespace DotNES
         }
 
         [OpCode(opcode = 0xBC, name = "LDX")]
-        public int LDY_AbsoluteX()
+        private int LDY_AbsoluteX()
         {
             ushort arg = argOne16();
             ushort address = (ushort)(arg + _X);
@@ -402,17 +402,17 @@ namespace DotNES
         #endregion
 
         #region OpcodeHelpers
-        public byte argOne()
+        private byte argOne()
         {
             return memory.read8((ushort)(_PC + 1));
         }
 
-        public ushort argOne16()
+        private ushort argOne16()
         {
             return memory.read16((ushort)(_PC + 1));
         }
 
-        public byte argTwo()
+        private byte argTwo()
         {
             return memory.read8((ushort)(_PC + 2));
         }
