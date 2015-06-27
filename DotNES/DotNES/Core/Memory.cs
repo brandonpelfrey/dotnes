@@ -8,6 +8,13 @@ namespace DotNES.Core
 {
     public class Memory
     {
+        private Cartridge cartridge;
+
+        public Memory(Cartridge cartridge)
+        {
+            this.cartridge = cartridge;
+        }
+
         /// <summary>
         /// Write a byte to system memory. This might be internal RAM ($0000-$07FF), or 
         /// could refer to memory-mapped devices, e.g. mappers, APU, PPU, etc.

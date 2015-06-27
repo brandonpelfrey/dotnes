@@ -1,20 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace DotNES.Core
 {
-    class System
+    class APU
     {
-        Memory memory;
-        CPU cpu;
-
-        public void loadRom(string romPath)
+        public void step()
         {
-            byte[] romData = File.ReadAllBytes(romPath);
+
         }
     }
 }

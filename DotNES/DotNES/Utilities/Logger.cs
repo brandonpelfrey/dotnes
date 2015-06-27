@@ -20,9 +20,9 @@ namespace DotNES.Utilities
             Console.Out.WriteLine(string.Format(message, args));
         }
 
-        public void error(string message)
+        public void error(string message, params object[] args)
         {
-            Console.Error.WriteLine(message);
+            Console.Error.WriteLine(string.Format(message, args));
         }
     }
 }

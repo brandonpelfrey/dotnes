@@ -1,7 +1,9 @@
 ﻿using DotNES.Core;
+using DotNES.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,6 +15,12 @@ namespace DotNES
     /// </summary>
     public class CPU
     {
+        private Logger log = new Logger();
+
+        private MethodInfo[] opcodeFunctions;
+        
+        Memory memory;
+
         #region Registers
 
         /// <summary>
@@ -84,14 +92,29 @@ namespace DotNES
         }
 
         #endregion
-
-        #region System Components
-
-        Memory memory;
-
-        #endregion
-
+        
         #region OpCodes
+        
+        private void initializeOpCodeTable()
+        {
+            // Initialize all functions to zero-cycle NOPs
+            opcodeFunctions = new MethodInfo[256];
+            for(int i=0; i<256; ++i)
+                opcodeFunctions[i] = null;
+
+            // Look at all the OpCodes implemented in this class and insert them into the array
+            MethodInfo[] methods = GetType().GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach(var method in methods)
+            {
+                OpCodeAttribute attribute = Attribute.GetCustomAttribute(method, typeof(OpCodeAttribute), false) as OpCodeAttribute;
+                if (attribute == null)
+                    continue;
+
+                opcodeFunctions[attribute.opcode] = method;
+            }
+
+            log.info("Initialized 2A03 with {0} implemented OpCodes", opcodeFunctions.Where(x => x != null).Count());
+        }
 
         // Implementation details : http://www.obelisk.demon.co.uk/6502/reference.html
 
@@ -107,6 +130,16 @@ namespace DotNES
 
         #region Arithmetic
 
+        #endregion
+
+        #region Flag Manipulation
+        [OpCode(name="CLD", opcode = 0xD8)]
+        private int CLD_Implicit()
+        {
+            setFlag(StatusFlag.Decimal, 0);
+            _PC += 1;
+            return 2;
+        }
         #endregion
 
         #endregion
@@ -148,5 +181,30 @@ namespace DotNES
         }
 
         #endregion
+
+        public CPU(Memory memory)
+        {
+            this.memory = memory;
+
+            initializeOpCodeTable();
+        }
+
+        /// <summary>
+        /// Execute the next CPU instruction and return the number of cycles used.
+        /// </summary>
+        /// <returns></returns>
+        public int step()
+        {
+            byte opcode = memory.read8(_PC);
+
+            MethodInfo opcodeMethod = opcodeFunctions[opcode];
+            if(opcodeMethod == null)
+            {
+                log.error("Unknown opcode {0:X} encountered.", opcode);
+                return 0;
+            }
+
+            return (int)opcodeMethod.Invoke(this, null);
+        }
     }
 }

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace DotNES.Core
 {
-    class Cartridge
+    public class Cartridge
     {
         private Logger log = new Logger();
         private byte[] PRGRomData;
