@@ -24,6 +24,11 @@ namespace DotNES.Core
             throw new NotImplementedException();
         }
 
+        public void write16(ushort addr, ushort val)
+        {
+            throw new NotImplementedException();
+        }
+
         public ushort read16(ushort addr)
         {
             throw new NotImplementedException();

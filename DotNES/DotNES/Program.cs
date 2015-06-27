@@ -12,6 +12,7 @@ namespace DotNES
         static void Main(string[] args)
         {
             Cartridge cart = new Cartridge("C:\\roms\\dk.nes");
+
             //Console.Out.WriteLine(C);
             Console.ReadKey();
         }
