@@ -18,7 +18,7 @@ namespace DotNES
         private Logger log = new Logger();
 
         private MethodInfo[] opcodeFunctions;
-        
+
         Memory memory;
 
         #region Registers
@@ -94,17 +94,17 @@ namespace DotNES
         #endregion
 
         #region OpCodes
-        
+
         private void initializeOpCodeTable()
         {
             // Initialize all functions to zero-cycle NOPs
             opcodeFunctions = new MethodInfo[256];
-            for(int i=0; i<256; ++i)
+            for (int i = 0; i < 256; ++i)
                 opcodeFunctions[i] = null;
 
             // Look at all the OpCodes implemented in this class and insert them into the array
             MethodInfo[] methods = GetType().GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
-            foreach(var method in methods)
+            foreach (var method in methods)
             {
                 OpCodeAttribute attribute = Attribute.GetCustomAttribute(method, typeof(OpCodeAttribute), false) as OpCodeAttribute;
                 if (attribute == null)
@@ -119,7 +119,7 @@ namespace DotNES
         // Implementation details : http://www.obelisk.demon.co.uk/6502/reference.html
 
         #region Jumps
-        [OpCode(opcode = 0x4C, name ="JMP")]
+        [OpCode(opcode = 0x4C, name = "JMP")]
         private int JMP_Absolute()
         {
             _PC = argOne16();
@@ -144,6 +144,292 @@ namespace DotNES
         #endregion
 
         #region Arithmetic
+
+        #region ADC
+        [OpCode(opcode = 0x69, name = "ADC")]
+        private int ADC_Immediate()
+        {
+            byte arg = argOne();
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x65, name = "ADC")]
+        private int ADC_ZeroPage()
+        {
+            byte arg = memory.read8(argOne());
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x75, name = "ADC")]
+        private int ADC_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte arg = memory.read8(address);
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x6D, name = "ADC")]
+        private int ADC_Absolute()
+        {
+            byte arg = memory.read8(argOne16());
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x7D, name = "ADC")]
+        private int ADC_AbsoluteX()
+        {
+            return ADC_AbsoluteWithRegister(_X);
+        }
+
+        [OpCode(opcode = 0x79, name = "ADC")]
+        private int ADC_AbsoluteY()
+        {
+            return ADC_AbsoluteWithRegister(_X);
+        }
+
+        private int ADC_AbsoluteWithRegister(ushort registerValue)
+        {
+            ushort address = (ushort)(argOne16() + registerValue);
+            byte arg = memory.read8(address);
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+            
+            _PC += 3;
+
+            if (samePage(arg, address))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
+        [OpCode(opcode = 0x61, name = "ADC")]
+        private int ADC_IndirectX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte arg = memory.read8(memory.read16(address));
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x71, name = "ADC")]
+        private int ADC_IndirectY()
+        {
+            ushort addressWithoutY = memory.read16(argOne());
+            ushort addressWithY = (ushort)(addressWithoutY + _Y);
+                        
+            byte arg = memory.read8(memory.read16(addressWithY));
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            if (samePage(addressWithY, addressWithoutY))
+            {
+                return 5;
+            }
+            else
+            {
+                return 6;
+            }
+        }
+        #endregion
+
+        #region AND
+        [OpCode(opcode = 0x29, name = "AND")]
+        private int AND_Immediate()
+        {
+            byte arg = argOne();
+            _A = (byte)(_A & arg);
+            
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x25, name = "AND")]
+        private int AND_ZeroPage()
+        {
+            byte arg = memory.read8(argOne());
+            _A = (byte)(_A & arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x35, name = "AND")]
+        private int AND_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte arg = memory.read8(address);
+            _A = (byte)(_A & arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x2D, name = "AND")]
+        private int AND_Absolute()
+        {
+            ushort address = argOne16();
+            byte arg = memory.read8(address);
+            _A = (byte)(_A & arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x3D, name = "AND")]
+        private int AND_AbsoluteX()
+        {
+            return AND_AbsoluteWithRegister(_X);
+        }
+
+        [OpCode(opcode = 0x39, name = "AND")]
+        private int AND_AbsoluteY()
+        {
+            return AND_AbsoluteWithRegister(_Y);
+        }
+
+        private int AND_AbsoluteWithRegister(ushort registerValue)
+        {
+            ushort address = (ushort)(argOne16() + registerValue);
+            byte arg = memory.read8(address);
+            _A = (byte)(_A & arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+
+            if (samePage(arg, address))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
+        [OpCode(opcode = 0x21, name = "AND")]
+        private int AND_IndirectX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte arg = memory.read8(memory.read16(address));
+            _A = (byte)(_A & arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x31, name = "AND")]
+        private int AND_IndirectY()
+        {
+            ushort addressWithoutY = memory.read16(argOne());
+            ushort addressWithY = (ushort)(addressWithoutY + _Y);
+            byte arg = memory.read8(memory.read16(addressWithY));
+            _A = (byte)(_A & arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+            
+            _PC += 2;
+            if (samePage(addressWithY, addressWithoutY))
+            {
+                return 5;
+            }
+            else
+            {
+                return 6;
+            }
+        }
+
+        #endregion
 
         #endregion
 
@@ -207,7 +493,7 @@ namespace DotNES
         [OpCode(opcode = 0x95, name = "STA")]
         private int STA_ZeroPageX()
         {
-            memory.write8((ushort)( ( argOne() + _X ) & 0xFF ), _A);
+            memory.write8((ushort)((argOne() + _X) & 0xFF), _A);
             _PC += 2;
             return 4;
         }
@@ -239,7 +525,7 @@ namespace DotNES
         [OpCode(opcode = 0x81, name = "STA")]
         private int STA_IndirectX()
         {
-            ushort address = (ushort) ((argOne() + _X) & 0xFF);
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
             ushort indirectAddress = memory.read16(address);
             memory.write8(indirectAddress, _A);
             _PC += 2;
@@ -250,7 +536,7 @@ namespace DotNES
         private int STA_IndirectY()
         {
             ushort address = argOne();
-            ushort indirectAddress = (ushort) (memory.read16(address) + _Y);
+            ushort indirectAddress = (ushort)(memory.read16(address) + _Y);
             memory.write8(indirectAddress, _A);
             _PC += 2;
             return 6;
@@ -272,7 +558,7 @@ namespace DotNES
         [OpCode(opcode = 0x96, name = "STX")]
         private int STX_ZeroPageY()
         {
-            memory.write8((ushort) ((argOne() + _Y) & 0xFF), _X);
+            memory.write8((ushort)((argOne() + _Y) & 0xFF), _X);
             _PC += 2;
             return 4;
         }
@@ -384,9 +670,9 @@ namespace DotNES
             setNegativeForOperand(_A);
             _PC += 3;
 
-            if (samePage(arg ,address))
+            if (samePage(arg, address))
             {
-                return 4; 
+                return 4;
             }
             else
             {
@@ -452,7 +738,7 @@ namespace DotNES
         [OpCode(opcode = 0xB6, name = "LDX")]
         private int LDX_ZeroPageY()
         {
-            _X = memory.read8((ushort) ( (argOne() + _Y ) & 0xFF ));
+            _X = memory.read8((ushort)((argOne() + _Y) & 0xFF));
             setZeroForOperand(_X);
             setNegativeForOperand(_X);
             _PC += 2;
@@ -673,12 +959,26 @@ namespace DotNES
             return ((addressOne ^ addressTwo) & 0xFF00) == 0;
         }
 
-        private void setZeroForOperand(byte operand) {
+        private void setOverflowForOperands(byte val1, byte val2, int result)
+        {
+            // If the sign of the result differs from both inputs, overflow! (Work it out in a table)
+            bool overflowCheck = (((result ^ val1) & (result ^ val2)) & 0x80) == 1;
+            setFlag(StatusFlag.Overflow, (byte)(overflowCheck ? 1 : 0));
+        }
+
+        private void setCarryForResult(int result)
+        {
+            setFlag(StatusFlag.Zero, (result >> 8) != 0 ? (byte)1 : (byte)0);
+        }
+
+        private void setZeroForOperand(byte operand)
+        {
             setFlag(StatusFlag.Zero, operand == 0 ? (byte)1 : (byte)0);
         }
 
-        private void setNegativeForOperand(byte operand) {
-            setFlag(StatusFlag.Negative, (byte)( ( operand >> 7 ) ) );
+        private void setNegativeForOperand(byte operand)
+        {
+            setFlag(StatusFlag.Negative, (byte)((operand >> 7)));
         }
         #endregion
 
@@ -738,7 +1038,7 @@ namespace DotNES
             byte opcode = memory.read8(_PC);
 
             MethodInfo opcodeMethod = opcodeFunctions[opcode];
-            if(opcodeMethod == null)
+            if (opcodeMethod == null)
             {
                 log.error("Unknown opcode {0:X} encountered.", opcode);
                 return 0;
