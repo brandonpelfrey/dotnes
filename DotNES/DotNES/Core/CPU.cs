@@ -641,28 +641,26 @@ namespace DotNES
 
         private void pushStack16(ushort val)
         {
+            memory.write16(stackAddressOf((byte)(_S - 1)), val);
             _S -= 2;
-            memory.write16(stackAddressOf(_S), val);
         }
 
         private ushort popStack16()
         {
-            ushort val = memory.read16(stackAddressOf(_S));
             _S += 2;
-            return val;
+            return memory.read16(stackAddressOf((byte)(_S - 1)));
         }
 
         private void pushStack8(byte val)
         {
-            _S -= 1;
             memory.write16(stackAddressOf(_S), val);
+            _S -= 1;
         }
 
         private byte popStack8()
         {
-            byte val = memory.read8(stackAddressOf(_S));
             _S += 1;
-            return val;
+            return memory.read8(stackAddressOf(_S));
         }
 
         private ushort stackAddressOf(byte stackPointer)
