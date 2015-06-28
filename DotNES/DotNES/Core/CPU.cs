@@ -141,6 +141,13 @@ namespace DotNES
             return 6;
         }
 
+        [OpCode(opcode = 0xEA, name = "NOP")]
+        private int NOP_Implied()
+        {
+            _PC += 1;
+            return 2;
+        }
+
         #endregion
 
         #region Arithmetic
@@ -244,7 +251,7 @@ namespace DotNES
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
-            
+
             _PC += 3;
 
             if (samePage(arg, address))
@@ -281,7 +288,7 @@ namespace DotNES
         {
             ushort addressWithoutY = memory.read16(argOne());
             ushort addressWithY = (ushort)(addressWithoutY + _Y);
-                        
+
             byte arg = memory.read8(memory.read16(addressWithY));
             byte carry = getFlag(StatusFlag.Carry);
             int result = _A + arg + carry;
@@ -311,7 +318,7 @@ namespace DotNES
         {
             byte arg = argOne();
             _A = (byte)(_A & arg);
-            
+
             setNegativeForOperand(_A);
             setZeroForOperand(_A);
 
@@ -417,7 +424,7 @@ namespace DotNES
 
             setNegativeForOperand(_A);
             setZeroForOperand(_A);
-            
+
             _PC += 2;
             if (samePage(addressWithY, addressWithoutY))
             {
@@ -431,6 +438,167 @@ namespace DotNES
 
         #endregion
 
+        #region ASL
+        [OpCode(opcode = 0x0A, name = "ASL")]
+        private int ASL_Accumulator()
+        {
+            byte newCarry = (byte)((_A >> 7) & 1);
+            _A = (byte)(_A << 1);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x06, name = "ASL")]
+        private int ASL_ZeroPage()
+        {
+            ushort address = argOne();
+            byte val = memory.read8(address);
+            byte newCarry = (byte)((val >> 7) & 1);
+            val = (byte)(val << 1);
+            memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 2;
+            return 5;
+        }
+
+        [OpCode(opcode = 0x16, name = "ASL")]
+        private int ASL_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte val = memory.read8(address);
+            byte newCarry = (byte)((val >> 7) & 1);
+            val = (byte)(val << 1);
+            memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x0E, name = "ASL")]
+        private int ASL_Absolute()
+        {
+            ushort address = argOne16();
+            byte val = memory.read8(address);
+            byte newCarry = (byte)((val >> 7) & 1);
+            val = (byte)(val << 1);
+            memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 3;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x1E, name = "ASL")]
+        private int ASL_AbsoluteX()
+        {
+            ushort address = (ushort)((argOne16() + _X) & 0xFF);
+            byte val = memory.read8(address);
+            byte newCarry = (byte)((val >> 7) & 1);
+            val = (byte)(val << 1);
+            memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 3;
+            return 7;
+        }
+        #endregion
+
+        #endregion
+
+        #region Branch
+        [OpCode(opcode = 0x90, name = "BCC")]
+        private int BCC_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Carry) == 0);
+        }
+
+        [OpCode(opcode = 0xB0, name = "BCS")]
+        private int BCS_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Carry) == 1);
+        }
+
+        [OpCode(opcode = 0xF0, name = "BEQ")]
+        private int BEQ_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Zero) == 1);
+        }
+
+        [OpCode(opcode = 0xD0, name = "BNE")]
+        private int BNE_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Zero) == 0);
+        }
+
+        [OpCode(opcode = 0x30, name = "BMI")]
+        private int BMI_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Negative) == 1);
+        }
+
+        [OpCode(opcode = 0x10, name = "BPL")]
+        private int BPL_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Negative) == 0);
+        }
+
+        [OpCode(opcode = 0x50, name = "BVC")]
+        private int BVC_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Overflow) == 0);
+        }
+
+        [OpCode(opcode = 0x70, name = "BVS")]
+        private int BVS_Relative()
+        {
+            return Branch(getFlag(StatusFlag.Overflow) == 1);
+        }
+
+        private int Branch(bool condition)
+        {
+            // All branches are 2 Cycles...
+            int cycles = 2;
+
+            if (!condition)
+            {
+                _PC += 2;
+                return cycles;
+            }
+
+            // ... +1 if the branch is taken
+            cycles++;
+
+            // The displacements for branches are signed (can go backwards and forwards [-128,127])
+            sbyte offset = (sbyte)argOne();
+
+            ushort oldPC = _PC;
+            ushort newPC = (ushort)(_PC + 2 + offset);
+
+            // ... And +1 more cycle if it crosses pages
+            if (!samePage(oldPC, newPC))
+                cycles++;
+
+            return cycles;
+        }
         #endregion
 
         #region Flag Manipulation
@@ -438,6 +606,54 @@ namespace DotNES
         private int CLD_Implicit()
         {
             setFlag(StatusFlag.Decimal, 0);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x18, name = "CLC")]
+        private int CLC_Implicit()
+        {
+            setFlag(StatusFlag.Carry, 0);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x58, name = "CLI")]
+        private int CLI_Implicit()
+        {
+            setFlag(StatusFlag.InterruptDisable, 0);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xB8, name = "CLV")]
+        private int CLV_Implicit()
+        {
+            setFlag(StatusFlag.Overflow, 0);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x38, name = "SEC")]
+        private int SEC_Implicit()
+        {
+            setFlag(StatusFlag.Carry, 1);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xF8, name = "SED")]
+        private int SED_Implicit()
+        {
+            setFlag(StatusFlag.Decimal, 1);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x78, name = "SEI")]
+        private int SEI_Implicit()
+        {
+            setFlag(StatusFlag.InterruptDisable, 1);
             _PC += 1;
             return 2;
         }
@@ -905,6 +1121,169 @@ namespace DotNES
             setNegativeForOperand(_A);
             _PC += 1;
             return 2;
+        }
+
+        #endregion
+
+        #region Increment/Decrement
+        [OpCode(opcode = 0xE8, name = "INX")]
+        private int INX_Implied()
+        {
+            _X++;
+            setNegativeForOperand(_X);
+            setZeroForOperand(_X);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xC8, name = "INY")]
+        private int INY_Implied()
+        {
+            _Y++;
+            setNegativeForOperand(_Y);
+            setZeroForOperand(_Y);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xE6, name = "INC")]
+        private int INC_ZeroPage()
+        {
+            ushort address = argOne();
+            byte value = memory.read8(address);
+            value++;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 2;
+            return 5;
+        }
+
+        [OpCode(opcode = 0xF6, name = "INC")]
+        private int INC_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte value = memory.read8(address);
+            value++;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xEE, name = "INC")]
+        private int INC_Absolute()
+        {
+            ushort address = argOne16();
+            byte value = memory.read8(address);
+            value++;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 3;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xFE, name = "INC")]
+        private int INC_AbsoluteX()
+        {
+            ushort address = (ushort)(argOne16() + _X);
+            byte value = memory.read8(address);
+            value++;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 3;
+            return 7;
+        }
+
+        [OpCode(opcode = 0xCA, name = "DEX")]
+        private int DEX_Implied()
+        {
+            _X--;
+            setNegativeForOperand(_X);
+            setZeroForOperand(_X);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x88, name = "DEY")]
+        private int DEY_Implied()
+        {
+            _Y--;
+            setNegativeForOperand(_Y);
+            setZeroForOperand(_Y);
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xC6, name = "DEC")]
+        private int DEC_ZeroPage()
+        {
+            ushort address = argOne();
+            byte value = memory.read8(address);
+            value--;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 2;
+            return 5;
+        }
+
+        [OpCode(opcode = 0xD6, name = "DEC")]
+        private int DEC_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte value = memory.read8(address);
+            value--;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xCE, name = "DEC")]
+        private int DEC_Absolute()
+        {
+            ushort address = argOne16();
+            byte value = memory.read8(address);
+            value--;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 3;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xDE, name = "DEC")]
+        private int DEC_AbsoluteX()
+        {
+            ushort address = (ushort)(argOne16() + _X);
+            byte value = memory.read8(address);
+            value--;
+            memory.write8(address, value);
+
+            setNegativeForOperand(value);
+            setZeroForOperand(value);
+
+            _PC += 3;
+            return 7;
         }
 
         #endregion

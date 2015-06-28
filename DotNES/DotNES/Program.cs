@@ -13,7 +13,7 @@ namespace DotNES
         {
             Cartridge cart = new Cartridge("C:\\roms\\dk.nes");
             NESConsole system = new NESConsole( cart );
-            
+                        
             Console.Out.WriteLine("Press any key to exit");
             Console.ReadKey();
         }
