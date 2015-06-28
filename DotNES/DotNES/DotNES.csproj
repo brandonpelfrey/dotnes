@@ -60,11 +60,15 @@
   <ItemGroup>
     <Compile Include="Core\APU.cs" />
     <Compile Include="Core\Cartridge.cs" />
+    <Compile Include="Core\IO.cs" />
     <Compile Include="Core\CPU.cs" />
     <Compile Include="Core\Memory.cs" />
     <Compile Include="Core\OpCodeAttribute.cs" />
     <Compile Include="Core\PPU.cs" />
     <Compile Include="Core\NESConsole.cs" />
+    <Compile Include="Mappers\Mapper.cs" />
+    <Compile Include="Mappers\Mapper000.cs" />
+    <Compile Include="Mappers\MapperAttribute.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Settings.Designer.cs">

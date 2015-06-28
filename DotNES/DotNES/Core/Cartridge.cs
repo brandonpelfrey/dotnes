@@ -1,4 +1,5 @@
-﻿using DotNES.Utilities;
+﻿using DotNES.Mappers;
+using DotNES.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,8 +12,8 @@ namespace DotNES.Core
     public class Cartridge
     {
         private Logger log = new Logger();
-        private byte[] PRGRomData;
-        private byte[] CHRRomData;
+        public byte[] PRGRomData;
+        public byte[] CHRRomData;
 
         public int PRGROM_16KBankCount { get; private set; }
         public int PRGRAM_8KBankCount { get; private set; }
@@ -55,7 +56,7 @@ namespace DotNES.Core
             int flag10 = header[10];
 
             bool usesTrainer = (flag6 & 4) != 0;
-            if(usesTrainer)
+            if (usesTrainer)
             {
                 log.error("ROM uses a trainer. This is unsupported.");
                 throw new NotImplementedException();
@@ -67,14 +68,14 @@ namespace DotNES.Core
                 log.error("ROM is PAL. This is unsupported...");
                 throw new NotImplementedException();
             }
-            
-            
+
+
             if ((flag6 & 2) == 1)
             {
                 BatteryBackedRAM = true;
             }
 
-            MapperNumber = flag6>>4 | (flag7 & 0xf0);
+            MapperNumber = flag6 >> 4 | (flag7 & 0xf0);
 
             // Now that we know all the 'metadata' about the file, load the actual data.
             int prgStart = 16 + (usesTrainer ? 512 : 0);
@@ -88,8 +89,8 @@ namespace DotNES.Core
             log.info("ROM Details --");
             log.info(" * Mapper #{0}", MapperNumber);
             log.info(" * {0} Output", isNTSC ? "NTSC" : "PAL");
-            if(BatteryBackedRAM) log.info(" * Battery-backed RAM ('Game Saves' supported)");
-            
+            if (BatteryBackedRAM) log.info(" * Battery-backed RAM ('Game Saves' supported)");
+
             log.info(" * ROM Bank Data");
             log.info("   - {0}x 16 KB PRG ROM", PRGROM_16KBankCount);
             log.info("   - {0}x 8 KB PRG RAM", PRGRAM_8KBankCount);
@@ -104,6 +105,18 @@ namespace DotNES.Core
         public Cartridge(string romPath)
         {
             loadRomData(romPath);
+        }
+
+        public Mapper getMapper()
+        {
+            switch (MapperNumber)
+            {
+                case 0:
+                    return new Mapper000(this);
+                default:
+                    break;
+            }
+            throw new NotImplementedException();
         }
     }
 }

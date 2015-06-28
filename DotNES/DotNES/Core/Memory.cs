@@ -8,11 +8,13 @@ namespace DotNES.Core
 {
     public class Memory
     {
-        private Cartridge cartridge;
+        private byte[] RAM;
+        private NESConsole console;
 
-        public Memory(Cartridge cartridge)
+        public Memory(NESConsole console)
         {
-            this.cartridge = cartridge;
+            this.console = console;
+            RAM = new byte[0x800];
         }
 
         /// <summary>
@@ -28,6 +30,28 @@ namespace DotNES.Core
 
         public byte read8(ushort addr)
         {
+            if (addr < 0x2000)
+            {
+                return RAM[addr & 0x77F];
+            }
+            else if (addr < 0x4000)
+            {
+                // TODO : Read form PPU
+                // 0x2000 - 0x2007 repeats every 8 bytes up until 0x3FFF
+            }
+            else if (addr < 0x4016)
+            {
+                return console.apu.read(addr);
+            }
+            else if (addr < 0x4018)
+            {
+                return console.io.read(addr);
+            }
+            else
+            {
+                return console.mapper.read(addr);
+            }
+
             throw new NotImplementedException();
         }
 
@@ -38,7 +62,7 @@ namespace DotNES.Core
 
         public ushort read16(ushort addr)
         {
-            throw new NotImplementedException();
+            return (ushort)((read8((ushort)(addr + 1)) << 8) | read8(addr));
         }
     }
 }

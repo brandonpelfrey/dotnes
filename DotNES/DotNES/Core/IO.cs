@@ -6,16 +6,17 @@ using System.Threading.Tasks;
 
 namespace DotNES.Core
 {
-    public class APU
+    public class IO
     {
-        public void step()
+        void write(ushort address, byte val)
         {
 
         }
 
         public byte read(ushort address)
         {
-            // TODO: APU register reads
+            // TODO: handle serial controller data
+            // http://wiki.nesdev.com/w/index.php/Standard_controller
             return 0;
         }
     }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DotNES.Mappers;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,23 +8,23 @@ using System.Threading.Tasks;
 
 namespace DotNES.Core
 {
-    class NESConsole
+    public class NESConsole
     {
-        private Cartridge cartridge;
-        private Memory memory;
-
-        private CPU cpu;
-        private PPU ppu;
-        private APU apu;
+        public Mapper mapper;
+        public Memory memory { get; set; }
+        public CPU cpu { get; set; }
+        public PPU ppu { get; set; }
+        public APU apu { get; set; }
+        public IO io { get; set; }
 
         public NESConsole(Cartridge cartridge)
         {
-            this.cartridge = cartridge;
-            this.memory = new Memory(cartridge);
-
-            this.cpu = new CPU( this.memory );
+            this.mapper = cartridge.getMapper();
+            this.memory = new Memory(this);
+            this.cpu = new CPU( this );
             this.ppu = new PPU();
             this.apu = new APU();
+            this.io = new IO();
         }
 
         public void loadRom(string romPath)

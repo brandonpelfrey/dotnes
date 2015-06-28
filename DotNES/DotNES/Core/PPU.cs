@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace DotNES.Core
 {
-    class PPU
+    /// <summary>
+    /// http://wiki.nesdev.com/w/index.php/PPU_rendering
+    /// </summary>
+    public class PPU
     {
         public void step()
         {
