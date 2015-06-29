@@ -522,6 +522,171 @@ namespace DotNES
         }
         #endregion
 
+        #region Compare
+
+        #region CMP
+
+        [OpCode(opcode = 0xC9, name = "CMP")]
+        private int CMP_Immeditate()
+        {
+            compareValues(_A, argOne());
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xC5, name = "CMP")]
+        private int CMP_ZeroPage()
+        {
+            compareValues(_A, console.memory.read8(argOne()));
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xD5, name = "CMP")]
+        private int CMP_ZeroPageX()
+        {
+            compareValues(_A, console.memory.read8((byte)((argOne() + _X) & 0xFF)));
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xCD, name = "CMP")]
+        private int CMP_Absolute()
+        {
+            compareValues(_A, console.memory.read8(argOne16()));
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xDD, name = "CMP")]
+        private int CMP_AbsoluteX()
+        {
+            ushort address = argOne16();
+            ushort addressWithX = (ushort)(argOne16() + _X);
+            compareValues(_A, console.memory.read8(addressWithX));
+            _PC += 3;
+            if (samePage(address, addressWithX))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
+        [OpCode(opcode = 0xD9, name = "CMP")]
+        private int CMP_AbsoluteY()
+        {
+            ushort address = argOne16();
+            ushort addressWithY = (ushort)(argOne16() + _X);
+            compareValues(_A, console.memory.read8(addressWithY));
+            _PC += 3;
+            if (samePage(address, addressWithY))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
+        [OpCode(opcode = 0xC1, name = "CMP")]
+        private int CMP_IndirectX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            ushort indirectAddress = console.memory.read16(address);
+            compareValues(_A, console.memory.read8(indirectAddress));
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xD1, name = "CMP")]
+        private int CMP_IndirectY()
+        {
+            ushort address = console.memory.read16(argOne());
+            ushort addressWithY = (ushort)(address + _Y);
+            compareValues(_A, console.memory.read8(addressWithY));
+            _PC += 2;
+            if (samePage(address, addressWithY))
+            {
+                return 5;
+            }
+            else
+            {
+                return 6;
+            }
+        }
+
+        #endregion
+
+        #region CPX
+
+        [OpCode(opcode = 0xE0, name = "CMX")]
+        private int CMX_Immeditate()
+        {
+            compareValues(_X, argOne());
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xE4, name = "CMX")]
+        private int CMX_ZeroPage()
+        {
+            compareValues(_X, console.memory.read8(argOne()));
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xEC, name = "CMX")]
+        private int CMX_Absolute()
+        {
+            compareValues(_X, console.memory.read8(argOne16()));
+            _PC += 3;
+            return 4;
+        }
+
+        #endregion
+
+        #region CPY
+
+        [OpCode(opcode = 0xC0, name = "CMY")]
+        private int CMY_Immeditate()
+        {
+            compareValues(_Y, argOne());
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xC4, name = "CMY")]
+        private int CMY_ZeroPage()
+        {
+            compareValues(_Y, console.memory.read8(argOne()));
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xCC, name = "CMY")]
+        private int CMY_Absolute()
+        {
+            compareValues(_Y, console.memory.read8(argOne16()));
+            _PC += 3;
+            return 4;
+        }
+
+        #endregion
+
+        private void compareValues(byte registerValue, byte argumentValue)
+        {
+            byte result = (byte)(registerValue - argumentValue);
+            setZeroForOperand(result);
+            setNegativeForOperand(result);
+            setCarryForResult(result); // TODO this function may not be correct
+        }
+
+        #endregion
+
         #endregion
 
         #region Branch
