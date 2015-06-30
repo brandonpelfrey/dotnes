@@ -32,7 +32,7 @@ namespace DotNES.Core
             byte[] romData = File.ReadAllBytes(romPath);
         }
         
-        private void step()
+        public void step()
         {
             int cpuCycles = cpu.step();
         }

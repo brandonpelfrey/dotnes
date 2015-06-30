@@ -18,5 +18,10 @@ namespace DotNES.Core
             // TODO: APU register reads
             return 0;
         }
+
+        public void write(ushort addr, byte val)
+        {
+            // throw new NotImplementedException();
+        }
     }
 }

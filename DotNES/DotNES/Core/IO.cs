@@ -8,7 +8,7 @@ namespace DotNES.Core
 {
     public class IO
     {
-        void write(ushort address, byte val)
+        public void write(ushort address, byte val)
         {
 
         }

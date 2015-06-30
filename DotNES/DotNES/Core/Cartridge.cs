@@ -11,7 +11,7 @@ namespace DotNES.Core
 {
     public class Cartridge
     {
-        private Logger log = new Logger();
+        private Logger log = new Logger( "Cartridge" );
         public byte[] PRGRomData;
         public byte[] CHRRomData;
 

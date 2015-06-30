@@ -15,7 +15,7 @@ namespace DotNES
     /// </summary>
     public class CPU
     {
-        private Logger log = new Logger();
+        private Logger log = new Logger( "CPU" );
 
         private MethodInfo[] opcodeFunctions;
 
@@ -113,7 +113,7 @@ namespace DotNES
                 opcodeFunctions[attribute.opcode] = method;
             }
 
-            log.info("Initialized 2A03 with {0} implemented OpCodes", opcodeFunctions.Where(x => x != null).Count());
+            log.info("Initialized 6502 with {0} implemented OpCodes", opcodeFunctions.Where(x => x != null).Count());
         }
 
         // Implementation details : http://www.obelisk.demon.co.uk/6502/reference.html
@@ -1540,6 +1540,8 @@ namespace DotNES
             _A = _X = _Y = 0;
             _S = 0xFD;
 
+            jumpToResetVector();
+
             // Set up some of the memory-mapped stuff
             console.memory.write8(0x4017, 0x00); // (frame irq enabled)
             console.memory.write8(0x4015, 0x00); // (all channels disabled)
@@ -1551,8 +1553,7 @@ namespace DotNES
         /// </summary>
         public void warmBoot()
         {
-            // A, X, Y were not affected
-
+            jumpToResetVector();
 
             // S was decremented by 3(but nothing was written to the stack)
             _S -= 3;
@@ -1562,6 +1563,13 @@ namespace DotNES
 
             // Silence the APU
             console.memory.write8(0x4015, 0x00);
+        }
+
+        private void jumpToResetVector()
+        {
+            // Jump to location pointed at by the reset vector
+            _PC = console.memory.read16(0xFFFC);
+            log.info("Jumped to Reset Vector @ {0:X}", _PC);
         }
 
         #endregion
@@ -1580,13 +1588,16 @@ namespace DotNES
         public int step()
         {
             byte opcode = console.memory.read8(_PC);
-
+            
             MethodInfo opcodeMethod = opcodeFunctions[opcode];
             if (opcodeMethod == null)
             {
                 log.error("Unknown opcode {0:X} encountered.", opcode);
                 return 0;
             }
+
+            OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethod, typeof(OpCodeAttribute), false) as OpCodeAttribute;
+            log.info("{0:X4} : 0x{1:X2} ({2}) {3:X2} {4:X2} {5:X2}", _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC+1)), console.memory.read8((ushort)(_PC+2)));
 
             return (int)opcodeMethod.Invoke(this, null);
         }
