@@ -15,7 +15,7 @@ namespace DotNES
     /// </summary>
     public class CPU
     {
-        private Logger log = new Logger( "CPU" );
+        private Logger log = new Logger("CPU");
 
         private MethodInfo[] opcodeFunctions;
 
@@ -119,21 +119,21 @@ namespace DotNES
         // Implementation details : http://www.obelisk.demon.co.uk/6502/reference.html
 
         #region Jumps
-        [OpCode(opcode = 0x4C, name = "JMP")]
+        [OpCode(opcode = 0x4C, name = "JMP", bytes = 3)]
         private int JMP_Absolute()
         {
             _PC = argOne16();
             return 3;
         }
 
-        [OpCode(opcode = 0x6C, name = "JMP")]
+        [OpCode(opcode = 0x6C, name = "JMP", bytes = 3)]
         private int JMP_Indirect()
         {
             _PC = console.memory.read16(argOne16());
             return 5;
         }
 
-        [OpCode(opcode = 0x20, name = "JSR")]
+        [OpCode(opcode = 0x20, name = "JSR", bytes = 3)]
         private int JSR_Absolute()
         {
             pushStack16((ushort)(_PC + 3));
@@ -141,7 +141,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xEA, name = "NOP")]
+        [OpCode(opcode = 0xEA, name = "NOP", bytes = 1)]
         private int NOP_Implied()
         {
             _PC += 1;
@@ -153,7 +153,7 @@ namespace DotNES
         #region Arithmetic
 
         #region ADC
-        [OpCode(opcode = 0x69, name = "ADC")]
+        [OpCode(opcode = 0x69, name = "ADC", bytes = 2)]
         private int ADC_Immediate()
         {
             byte arg = argOne();
@@ -171,7 +171,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x65, name = "ADC")]
+        [OpCode(opcode = 0x65, name = "ADC", bytes = 2)]
         private int ADC_ZeroPage()
         {
             byte arg = console.memory.read8(argOne());
@@ -189,7 +189,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x75, name = "ADC")]
+        [OpCode(opcode = 0x75, name = "ADC", bytes = 2)]
         private int ADC_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -208,7 +208,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x6D, name = "ADC")]
+        [OpCode(opcode = 0x6D, name = "ADC", bytes = 3)]
         private int ADC_Absolute()
         {
             byte arg = console.memory.read8(argOne16());
@@ -226,13 +226,13 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x7D, name = "ADC")]
+        [OpCode(opcode = 0x7D, name = "ADC", bytes = 3)]
         private int ADC_AbsoluteX()
         {
             return ADC_AbsoluteWithRegister(_X);
         }
 
-        [OpCode(opcode = 0x79, name = "ADC")]
+        [OpCode(opcode = 0x79, name = "ADC", bytes = 3)]
         private int ADC_AbsoluteY()
         {
             return ADC_AbsoluteWithRegister(_X);
@@ -264,7 +264,7 @@ namespace DotNES
             }
         }
 
-        [OpCode(opcode = 0x61, name = "ADC")]
+        [OpCode(opcode = 0x61, name = "ADC", bytes = 2)]
         private int ADC_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -283,7 +283,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0x71, name = "ADC")]
+        [OpCode(opcode = 0x71, name = "ADC", bytes = 2)]
         private int ADC_IndirectY()
         {
             ushort addressWithoutY = console.memory.read16(argOne());
@@ -313,7 +313,7 @@ namespace DotNES
         #endregion
 
         #region AND
-        [OpCode(opcode = 0x29, name = "AND")]
+        [OpCode(opcode = 0x29, name = "AND", bytes = 2)]
         private int AND_Immediate()
         {
             byte arg = argOne();
@@ -326,7 +326,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x25, name = "AND")]
+        [OpCode(opcode = 0x25, name = "AND", bytes = 2)]
         private int AND_ZeroPage()
         {
             byte arg = console.memory.read8(argOne());
@@ -339,7 +339,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x35, name = "AND")]
+        [OpCode(opcode = 0x35, name = "AND", bytes = 2)]
         private int AND_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -353,7 +353,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x2D, name = "AND")]
+        [OpCode(opcode = 0x2D, name = "AND", bytes = 3)]
         private int AND_Absolute()
         {
             ushort address = argOne16();
@@ -367,13 +367,13 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x3D, name = "AND")]
+        [OpCode(opcode = 0x3D, name = "AND", bytes = 3)]
         private int AND_AbsoluteX()
         {
             return AND_AbsoluteWithRegister(_X);
         }
 
-        [OpCode(opcode = 0x39, name = "AND")]
+        [OpCode(opcode = 0x39, name = "AND", bytes = 3)]
         private int AND_AbsoluteY()
         {
             return AND_AbsoluteWithRegister(_Y);
@@ -400,7 +400,7 @@ namespace DotNES
             }
         }
 
-        [OpCode(opcode = 0x21, name = "AND")]
+        [OpCode(opcode = 0x21, name = "AND", bytes = 2)]
         private int AND_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -414,7 +414,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0x31, name = "AND")]
+        [OpCode(opcode = 0x31, name = "AND", bytes = 2)]
         private int AND_IndirectY()
         {
             ushort addressWithoutY = console.memory.read16(argOne());
@@ -439,7 +439,7 @@ namespace DotNES
         #endregion
 
         #region ASL
-        [OpCode(opcode = 0x0A, name = "ASL")]
+        [OpCode(opcode = 0x0A, name = "ASL", bytes = 1)]
         private int ASL_Accumulator()
         {
             byte newCarry = (byte)((_A >> 7) & 1);
@@ -453,7 +453,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x06, name = "ASL")]
+        [OpCode(opcode = 0x06, name = "ASL", bytes = 2)]
         private int ASL_ZeroPage()
         {
             ushort address = argOne();
@@ -470,7 +470,7 @@ namespace DotNES
             return 5;
         }
 
-        [OpCode(opcode = 0x16, name = "ASL")]
+        [OpCode(opcode = 0x16, name = "ASL", bytes = 2)]
         private int ASL_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -487,7 +487,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0x0E, name = "ASL")]
+        [OpCode(opcode = 0x0E, name = "ASL", bytes = 3)]
         private int ASL_Absolute()
         {
             ushort address = argOne16();
@@ -504,7 +504,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0x1E, name = "ASL")]
+        [OpCode(opcode = 0x1E, name = "ASL", bytes = 3)]
         private int ASL_AbsoluteX()
         {
             ushort address = (ushort)((argOne16() + _X) & 0xFF);
@@ -526,7 +526,7 @@ namespace DotNES
 
         #region CMP
 
-        [OpCode(opcode = 0xC9, name = "CMP")]
+        [OpCode(opcode = 0xC9, name = "CMP", bytes = 2)]
         private int CMP_Immeditate()
         {
             compareValues(_A, argOne());
@@ -534,7 +534,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xC5, name = "CMP")]
+        [OpCode(opcode = 0xC5, name = "CMP", bytes = 2)]
         private int CMP_ZeroPage()
         {
             compareValues(_A, console.memory.read8(argOne()));
@@ -542,7 +542,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0xD5, name = "CMP")]
+        [OpCode(opcode = 0xD5, name = "CMP", bytes = 2)]
         private int CMP_ZeroPageX()
         {
             compareValues(_A, console.memory.read8((byte)((argOne() + _X) & 0xFF)));
@@ -550,7 +550,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xCD, name = "CMP")]
+        [OpCode(opcode = 0xCD, name = "CMP", bytes = 3)]
         private int CMP_Absolute()
         {
             compareValues(_A, console.memory.read8(argOne16()));
@@ -558,7 +558,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xDD, name = "CMP")]
+        [OpCode(opcode = 0xDD, name = "CMP", bytes = 3)]
         private int CMP_AbsoluteX()
         {
             ushort address = argOne16();
@@ -575,7 +575,7 @@ namespace DotNES
             }
         }
 
-        [OpCode(opcode = 0xD9, name = "CMP")]
+        [OpCode(opcode = 0xD9, name = "CMP", bytes = 3)]
         private int CMP_AbsoluteY()
         {
             ushort address = argOne16();
@@ -592,7 +592,7 @@ namespace DotNES
             }
         }
 
-        [OpCode(opcode = 0xC1, name = "CMP")]
+        [OpCode(opcode = 0xC1, name = "CMP", bytes = 2)]
         private int CMP_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -602,7 +602,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xD1, name = "CMP")]
+        [OpCode(opcode = 0xD1, name = "CMP", bytes = 2)]
         private int CMP_IndirectY()
         {
             ushort address = console.memory.read16(argOne());
@@ -623,7 +623,7 @@ namespace DotNES
 
         #region CPX
 
-        [OpCode(opcode = 0xE0, name = "CMX")]
+        [OpCode(opcode = 0xE0, name = "CMX", bytes = 2)]
         private int CMX_Immeditate()
         {
             compareValues(_X, argOne());
@@ -631,7 +631,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xE4, name = "CMX")]
+        [OpCode(opcode = 0xE4, name = "CMX", bytes = 2)]
         private int CMX_ZeroPage()
         {
             compareValues(_X, console.memory.read8(argOne()));
@@ -639,7 +639,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0xEC, name = "CMX")]
+        [OpCode(opcode = 0xEC, name = "CMX", bytes = 3)]
         private int CMX_Absolute()
         {
             compareValues(_X, console.memory.read8(argOne16()));
@@ -651,7 +651,7 @@ namespace DotNES
 
         #region CPY
 
-        [OpCode(opcode = 0xC0, name = "CMY")]
+        [OpCode(opcode = 0xC0, name = "CMY", bytes = 2)]
         private int CMY_Immeditate()
         {
             compareValues(_Y, argOne());
@@ -659,7 +659,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xC4, name = "CMY")]
+        [OpCode(opcode = 0xC4, name = "CMY", bytes = 2)]
         private int CMY_ZeroPage()
         {
             compareValues(_Y, console.memory.read8(argOne()));
@@ -667,7 +667,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0xCC, name = "CMY")]
+        [OpCode(opcode = 0xCC, name = "CMY", bytes = 3)]
         private int CMY_Absolute()
         {
             compareValues(_Y, console.memory.read8(argOne16()));
@@ -690,49 +690,49 @@ namespace DotNES
         #endregion
 
         #region Branch
-        [OpCode(opcode = 0x90, name = "BCC")]
+        [OpCode(opcode = 0x90, name = "BCC", bytes = 1)]
         private int BCC_Relative()
         {
             return Branch(getFlag(StatusFlag.Carry) == 0);
         }
 
-        [OpCode(opcode = 0xB0, name = "BCS")]
+        [OpCode(opcode = 0xB0, name = "BCS", bytes = 1)]
         private int BCS_Relative()
         {
             return Branch(getFlag(StatusFlag.Carry) == 1);
         }
 
-        [OpCode(opcode = 0xF0, name = "BEQ")]
+        [OpCode(opcode = 0xF0, name = "BEQ", bytes = 1)]
         private int BEQ_Relative()
         {
             return Branch(getFlag(StatusFlag.Zero) == 1);
         }
 
-        [OpCode(opcode = 0xD0, name = "BNE")]
+        [OpCode(opcode = 0xD0, name = "BNE", bytes = 1)]
         private int BNE_Relative()
         {
             return Branch(getFlag(StatusFlag.Zero) == 0);
         }
 
-        [OpCode(opcode = 0x30, name = "BMI")]
+        [OpCode(opcode = 0x30, name = "BMI", bytes = 1)]
         private int BMI_Relative()
         {
             return Branch(getFlag(StatusFlag.Negative) == 1);
         }
 
-        [OpCode(opcode = 0x10, name = "BPL")]
+        [OpCode(opcode = 0x10, name = "BPL", bytes = 1)]
         private int BPL_Relative()
         {
             return Branch(getFlag(StatusFlag.Negative) == 0);
         }
 
-        [OpCode(opcode = 0x50, name = "BVC")]
+        [OpCode(opcode = 0x50, name = "BVC", bytes = 1)]
         private int BVC_Relative()
         {
             return Branch(getFlag(StatusFlag.Overflow) == 0);
         }
 
-        [OpCode(opcode = 0x70, name = "BVS")]
+        [OpCode(opcode = 0x70, name = "BVS", bytes = 1)]
         private int BVS_Relative()
         {
             return Branch(getFlag(StatusFlag.Overflow) == 1);
@@ -742,7 +742,7 @@ namespace DotNES
         {
             // All branches are 2 Cycles...
             int cycles = 2;
-            
+
             if (!condition)
             {
                 _PC += 2;
@@ -768,7 +768,7 @@ namespace DotNES
         #endregion
 
         #region Flag Manipulation
-        [OpCode(opcode = 0xD8, name = "CLD")]
+        [OpCode(opcode = 0xD8, name = "CLD", bytes = 1)]
         private int CLD_Implicit()
         {
             setFlag(StatusFlag.Decimal, 0);
@@ -776,7 +776,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x18, name = "CLC")]
+        [OpCode(opcode = 0x18, name = "CLC", bytes = 1)]
         private int CLC_Implicit()
         {
             setFlag(StatusFlag.Carry, 0);
@@ -784,7 +784,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x58, name = "CLI")]
+        [OpCode(opcode = 0x58, name = "CLI", bytes = 1)]
         private int CLI_Implicit()
         {
             setFlag(StatusFlag.InterruptDisable, 0);
@@ -792,7 +792,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xB8, name = "CLV")]
+        [OpCode(opcode = 0xB8, name = "CLV", bytes = 1)]
         private int CLV_Implicit()
         {
             setFlag(StatusFlag.Overflow, 0);
@@ -800,7 +800,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x38, name = "SEC")]
+        [OpCode(opcode = 0x38, name = "SEC", bytes = 1)]
         private int SEC_Implicit()
         {
             setFlag(StatusFlag.Carry, 1);
@@ -808,7 +808,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xF8, name = "SED")]
+        [OpCode(opcode = 0xF8, name = "SED", bytes = 1)]
         private int SED_Implicit()
         {
             setFlag(StatusFlag.Decimal, 1);
@@ -816,7 +816,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x78, name = "SEI")]
+        [OpCode(opcode = 0x78, name = "SEI", bytes = 1)]
         private int SEI_Implicit()
         {
             setFlag(StatusFlag.InterruptDisable, 1);
@@ -826,7 +826,7 @@ namespace DotNES
         #endregion
 
         #region Stack
-        [OpCode(opcode = 0x48, name = "PHA")]
+        [OpCode(opcode = 0x48, name = "PHA", bytes = 1)]
         private int PHA()
         {
             pushStack8(_A);
@@ -834,7 +834,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x08, name = "PHP")]
+        [OpCode(opcode = 0x08, name = "PHP", bytes = 1)]
         private int PHP()
         {
             pushStack8(_P);
@@ -842,7 +842,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x68, name = "PLA")]
+        [OpCode(opcode = 0x68, name = "PLA", bytes = 1)]
         private int PLA()
         {
             _A = popStack8();
@@ -852,7 +852,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x28, name = "PLP")]
+        [OpCode(opcode = 0x28, name = "PLP", bytes = 1)]
         private int PLP()
         {
             _P = popStack8();
@@ -864,7 +864,7 @@ namespace DotNES
         #region Store
 
         #region STA
-        [OpCode(opcode = 0x85, name = "STA")]
+        [OpCode(opcode = 0x85, name = "STA", bytes = 2)]
         private int STA_ZeroPage()
         {
             console.memory.write8(argOne(), _A);
@@ -872,7 +872,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x95, name = "STA")]
+        [OpCode(opcode = 0x95, name = "STA", bytes = 2)]
         private int STA_ZeroPageX()
         {
             console.memory.write8((ushort)((argOne() + _X) & 0xFF), _A);
@@ -880,7 +880,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x8D, name = "STA")]
+        [OpCode(opcode = 0x8D, name = "STA", bytes = 3)]
         private int STA_Absolute()
         {
             console.memory.write8(argOne16(), _A);
@@ -888,7 +888,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x9D, name = "STA")]
+        [OpCode(opcode = 0x9D, name = "STA", bytes = 3)]
         private int STA_AbsoluteX()
         {
             console.memory.write8((ushort)(argOne16() + _X), _A);
@@ -896,7 +896,7 @@ namespace DotNES
             return 5;
         }
 
-        [OpCode(opcode = 0x99, name = "STA")]
+        [OpCode(opcode = 0x99, name = "STA", bytes = 3)]
         private int STA_AbsoluteY()
         {
             console.memory.write8((ushort)(argOne16() + _Y), _A);
@@ -904,7 +904,7 @@ namespace DotNES
             return 5;
         }
 
-        [OpCode(opcode = 0x81, name = "STA")]
+        [OpCode(opcode = 0x81, name = "STA", bytes = 2)]
         private int STA_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -914,7 +914,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0x91, name = "STA")]
+        [OpCode(opcode = 0x91, name = "STA", bytes = 2)]
         private int STA_IndirectY()
         {
             ushort address = argOne();
@@ -929,7 +929,7 @@ namespace DotNES
 
         #region STX
 
-        [OpCode(opcode = 0x86, name = "STX")]
+        [OpCode(opcode = 0x86, name = "STX", bytes = 2)]
         private int STX_ZeroPage()
         {
             console.memory.write8(argOne(), _X);
@@ -937,7 +937,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x96, name = "STX")]
+        [OpCode(opcode = 0x96, name = "STX", bytes = 2)]
         private int STX_ZeroPageY()
         {
             console.memory.write8((ushort)((argOne() + _Y) & 0xFF), _X);
@@ -945,7 +945,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x8E, name = "STX")]
+        [OpCode(opcode = 0x8E, name = "STX", bytes = 3)]
         private int STX_Absolute()
         {
             console.memory.write8(argOne16(), _X);
@@ -957,7 +957,7 @@ namespace DotNES
 
         #region STY
 
-        [OpCode(opcode = 0x84, name = "STY")]
+        [OpCode(opcode = 0x84, name = "STY", bytes = 2)]
         private int STY_ZeroPage()
         {
             console.memory.write8(argOne(), _Y);
@@ -965,7 +965,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0x94, name = "STY")]
+        [OpCode(opcode = 0x94, name = "STY", bytes = 2)]
         private int STY_ZeroPageX()
         {
             console.memory.write8((ushort)((argOne() + _X) & 0xFF), _Y);
@@ -973,7 +973,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0x8C, name = "STY")]
+        [OpCode(opcode = 0x8C, name = "STY", bytes = 3)]
         private int STY_Absolute()
         {
             console.memory.write8(argOne16(), _Y);
@@ -989,7 +989,7 @@ namespace DotNES
 
         #region LDA
 
-        [OpCode(opcode = 0xA9, name = "LDA")]
+        [OpCode(opcode = 0xA9, name = "LDA", bytes = 2)]
         private int LDA_Immediate()
         {
             _A = argOne();
@@ -999,7 +999,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xA5, name = "LDA")]
+        [OpCode(opcode = 0xA5, name = "LDA", bytes = 2)]
         private int LDA_ZeroPage()
         {
             _A = console.memory.read8(argOne());
@@ -1009,7 +1009,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0xB5, name = "LDA")]
+        [OpCode(opcode = 0xB5, name = "LDA", bytes = 2)]
         private int LDA_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -1020,7 +1020,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xAD, name = "LDA")]
+        [OpCode(opcode = 0xAD, name = "LDA", bytes = 3)]
         private int LDA_Absolute()
         {
             _A = console.memory.read8(argOne16());
@@ -1030,13 +1030,13 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xBD, name = "LDA")]
+        [OpCode(opcode = 0xBD, name = "LDA", bytes = 3)]
         private int LDA_AbsoluteX()
         {
             return LDA_AbsoluteWithRegister(_X);
         }
 
-        [OpCode(opcode = 0xB9, name = "LDA")]
+        [OpCode(opcode = 0xB9, name = "LDA", bytes = 3)]
         private int LDA_AbsoluteY()
         {
             return LDA_AbsoluteWithRegister(_Y);
@@ -1062,7 +1062,7 @@ namespace DotNES
             }
         }
 
-        [OpCode(opcode = 0xA1, name = "LDA")]
+        [OpCode(opcode = 0xA1, name = "LDA", bytes = 2)]
         private int LDA_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -1073,7 +1073,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xB1, name = "LDA")]
+        [OpCode(opcode = 0xB1, name = "LDA", bytes = 2)]
         private int LDA_IndirectY()
         {
             ushort addressWithoutY = console.memory.read16(argOne());
@@ -1097,7 +1097,7 @@ namespace DotNES
 
         #region LDX
 
-        [OpCode(opcode = 0xA2, name = "LDX")]
+        [OpCode(opcode = 0xA2, name = "LDX", bytes = 2)]
         private int LDX_Immediate()
         {
             _X = argOne();
@@ -1107,7 +1107,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xA6, name = "LDX")]
+        [OpCode(opcode = 0xA6, name = "LDX", bytes = 2)]
         private int LDX_ZeroPage()
         {
             _X = console.memory.read8(argOne());
@@ -1117,7 +1117,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0xB6, name = "LDX")]
+        [OpCode(opcode = 0xB6, name = "LDX", bytes = 2)]
         private int LDX_ZeroPageY()
         {
             _X = console.memory.read8((ushort)((argOne() + _Y) & 0xFF));
@@ -1127,7 +1127,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xAE, name = "LDX")]
+        [OpCode(opcode = 0xAE, name = "LDX", bytes = 3)]
         private int LDX_Absolute()
         {
             _X = console.memory.read8(argOne16());
@@ -1137,7 +1137,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xBE, name = "LDX")]
+        [OpCode(opcode = 0xBE, name = "LDX", bytes = 3)]
         private int LDX_AbsoluteY()
         {
             ushort arg = argOne16();
@@ -1162,7 +1162,7 @@ namespace DotNES
 
         #region LDY
 
-        [OpCode(opcode = 0xA0, name = "LDY")]
+        [OpCode(opcode = 0xA0, name = "LDY", bytes = 2)]
         private int LDY_Immediate()
         {
             _Y = argOne();
@@ -1172,7 +1172,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xA4, name = "LDX")]
+        [OpCode(opcode = 0xA4, name = "LDX", bytes = 2)]
         private int LDY_ZeroPage()
         {
             _Y = console.memory.read8(argOne());
@@ -1182,7 +1182,7 @@ namespace DotNES
             return 3;
         }
 
-        [OpCode(opcode = 0xB4, name = "LDX")]
+        [OpCode(opcode = 0xB4, name = "LDX", bytes = 2)]
         private int LDY_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -1193,7 +1193,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xAC, name = "LDX")]
+        [OpCode(opcode = 0xAC, name = "LDX", bytes = 3)]
         private int LDY_Absolute()
         {
             _Y = console.memory.read8(argOne16());
@@ -1203,7 +1203,7 @@ namespace DotNES
             return 4;
         }
 
-        [OpCode(opcode = 0xBC, name = "LDX")]
+        [OpCode(opcode = 0xBC, name = "LDX", bytes = 3)]
         private int LDY_AbsoluteX()
         {
             ushort arg = argOne16();
@@ -1229,7 +1229,7 @@ namespace DotNES
         #endregion
 
         #region Transfer
-        [OpCode(opcode = 0xAA, name = "TAX")]
+        [OpCode(opcode = 0xAA, name = "TAX", bytes = 1)]
         private int TAX()
         {
             _X = _A;
@@ -1239,7 +1239,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xA8, name = "TAY")]
+        [OpCode(opcode = 0xA8, name = "TAY", bytes = 1)]
         private int TAY()
         {
             _Y = _A;
@@ -1249,7 +1249,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xBA, name = "TSX")]
+        [OpCode(opcode = 0xBA, name = "TSX", bytes = 1)]
         private int TSX()
         {
             _X = _S;
@@ -1259,7 +1259,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x8A, name = "TXA")]
+        [OpCode(opcode = 0x8A, name = "TXA", bytes = 1)]
         private int TXA()
         {
             _A = _X;
@@ -1269,7 +1269,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x9A, name = "TXS")]
+        [OpCode(opcode = 0x9A, name = "TXS", bytes = 1)]
         private int TXS()
         {
             _S = _X;
@@ -1279,7 +1279,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x98, name = "TYA")]
+        [OpCode(opcode = 0x98, name = "TYA", bytes = 1)]
         private int TYA()
         {
             _A = _Y;
@@ -1292,7 +1292,7 @@ namespace DotNES
         #endregion
 
         #region Increment/Decrement
-        [OpCode(opcode = 0xE8, name = "INX")]
+        [OpCode(opcode = 0xE8, name = "INX", bytes = 1)]
         private int INX_Implied()
         {
             _X++;
@@ -1302,7 +1302,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xC8, name = "INY")]
+        [OpCode(opcode = 0xC8, name = "INY", bytes = 1)]
         private int INY_Implied()
         {
             _Y++;
@@ -1312,7 +1312,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xE6, name = "INC")]
+        [OpCode(opcode = 0xE6, name = "INC", bytes = 2)]
         private int INC_ZeroPage()
         {
             ushort address = argOne();
@@ -1327,7 +1327,7 @@ namespace DotNES
             return 5;
         }
 
-        [OpCode(opcode = 0xF6, name = "INC")]
+        [OpCode(opcode = 0xF6, name = "INC", bytes = 2)]
         private int INC_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -1342,7 +1342,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xEE, name = "INC")]
+        [OpCode(opcode = 0xEE, name = "INC", bytes = 3)]
         private int INC_Absolute()
         {
             ushort address = argOne16();
@@ -1357,7 +1357,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xFE, name = "INC")]
+        [OpCode(opcode = 0xFE, name = "INC", bytes = 3)]
         private int INC_AbsoluteX()
         {
             ushort address = (ushort)(argOne16() + _X);
@@ -1372,7 +1372,7 @@ namespace DotNES
             return 7;
         }
 
-        [OpCode(opcode = 0xCA, name = "DEX")]
+        [OpCode(opcode = 0xCA, name = "DEX", bytes = 1)]
         private int DEX_Implied()
         {
             _X--;
@@ -1382,7 +1382,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0x88, name = "DEY")]
+        [OpCode(opcode = 0x88, name = "DEY", bytes = 1)]
         private int DEY_Implied()
         {
             _Y--;
@@ -1392,7 +1392,7 @@ namespace DotNES
             return 2;
         }
 
-        [OpCode(opcode = 0xC6, name = "DEC")]
+        [OpCode(opcode = 0xC6, name = "DEC", bytes = 2)]
         private int DEC_ZeroPage()
         {
             ushort address = argOne();
@@ -1407,7 +1407,7 @@ namespace DotNES
             return 5;
         }
 
-        [OpCode(opcode = 0xD6, name = "DEC")]
+        [OpCode(opcode = 0xD6, name = "DEC", bytes = 2)]
         private int DEC_ZeroPageX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
@@ -1422,7 +1422,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xCE, name = "DEC")]
+        [OpCode(opcode = 0xCE, name = "DEC", bytes = 3)]
         private int DEC_Absolute()
         {
             ushort address = argOne16();
@@ -1437,7 +1437,7 @@ namespace DotNES
             return 6;
         }
 
-        [OpCode(opcode = 0xDE, name = "DEC")]
+        [OpCode(opcode = 0xDE, name = "DEC", bytes = 3)]
         private int DEC_AbsoluteX()
         {
             ushort address = (ushort)(argOne16() + _X);
@@ -1589,7 +1589,7 @@ namespace DotNES
         public int step()
         {
             byte opcode = console.memory.read8(_PC);
-            
+
             MethodInfo opcodeMethod = opcodeFunctions[opcode];
             if (opcodeMethod == null)
             {
@@ -1597,11 +1597,31 @@ namespace DotNES
                 return 0;
             }
 
-            OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethod, typeof(OpCodeAttribute), false) as OpCodeAttribute;
-            log.info("{0:X4} : ({2}) {3:X2} {4:X2} {5:X2}", _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC+1)), console.memory.read8((ushort)(_PC+2)));
-            
+            printPreInvoke(opcodeMethod);
+
             return (int)opcodeMethod.Invoke(this, null);
         }
-        
+
+        public void printPreInvoke(MethodInfo opcodeMethodInfo)
+        {
+            OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethodInfo, typeof(OpCodeAttribute), false) as OpCodeAttribute;
+            byte opcode = opcodeMethodAttribute.opcode;
+
+            string format = "$CYAN${0:X4}$RESET$ : [{2}] $RED$";
+
+            int opcodeBytes = opcodeMethodAttribute.bytes;
+            for (int i = 3; i < 8; ++i)
+            {
+                format += " {" + i + ":X2}";
+
+                if ((i - 3) + 1 == opcodeBytes)
+                {
+                    format += "$RESET$";
+                }
+            }
+            
+            log.info(format, _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)));
+        }
+
     }
 }
