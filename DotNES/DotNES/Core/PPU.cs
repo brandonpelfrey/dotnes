@@ -24,5 +24,10 @@ namespace DotNES.Core
             log.error("Unimplemented read to PPU @ {0:X}", addr);
             return 0;
         }
+
+        public void write(ushort addr, byte val)
+        {
+            log.error("Unimplemented write 0x{0:X2} to PPU @ {1:X4}", val, addr);
+        }
     }
 }

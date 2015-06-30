@@ -742,7 +742,7 @@ namespace DotNES
         {
             // All branches are 2 Cycles...
             int cycles = 2;
-
+            
             if (!condition)
             {
                 _PC += 2;
@@ -762,6 +762,7 @@ namespace DotNES
             if (!samePage(oldPC, newPC))
                 cycles++;
 
+            _PC = newPC;
             return cycles;
         }
         #endregion
@@ -1597,9 +1598,10 @@ namespace DotNES
             }
 
             OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethod, typeof(OpCodeAttribute), false) as OpCodeAttribute;
-            log.info("{0:X4} : 0x{1:X2} ({2}) {3:X2} {4:X2} {5:X2}", _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC+1)), console.memory.read8((ushort)(_PC+2)));
-
+            log.info("{0:X4} : ({2}) {3:X2} {4:X2} {5:X2}", _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC+1)), console.memory.read8((ushort)(_PC+2)));
+            
             return (int)opcodeMethod.Invoke(this, null);
         }
+        
     }
 }
