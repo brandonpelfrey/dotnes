@@ -682,7 +682,7 @@ namespace DotNES
             byte result = (byte)(registerValue - argumentValue);
             setZeroForOperand(result);
             setNegativeForOperand(result);
-            setCarryForResult(result); // TODO this function may not be correct
+            setFlag(StatusFlag.Carry, (byte)(registerValue >= argumentValue ? 1 : 0));
         }
 
         #endregion
@@ -1512,7 +1512,7 @@ namespace DotNES
 
         private void setCarryForResult(int result)
         {
-            setFlag(StatusFlag.Zero, (result >> 8) != 0 ? (byte)1 : (byte)0);
+            setFlag(StatusFlag.Carry, (result >> 8) != 0 ? (byte)1 : (byte)0);
         }
 
         private void setZeroForOperand(byte operand)
