@@ -21,7 +21,8 @@ namespace DotNES.Core
 
         private NESConsole console;
 
-        private bool oddFrame;
+        private bool nmiOccurred = false;
+        private bool oddFrame = false;
 
         // Current column and scanline (int to support pre-scanline convention -1, etc.)
         private int x, scanline;
@@ -49,11 +50,6 @@ namespace DotNES.Core
             this.console = console;
         }
 
-        public bool hasPendingNMI()
-        {
-            return (_PPUSTATUS & 0x80) != 0 && (byte)(_PPUCTRL & 0x80) != 0;
-        }
-
         public void render_step()
         {
             // The first pre-scanline (-1) alternates every scanline between 340 and 341 pixels.
@@ -64,26 +60,38 @@ namespace DotNES.Core
             // There are 262 total scanlines per frame:
             // -1      : Pre-scanline        0-239   : Visible scanlines
             // 240     : Nada?               241-260 : Vertical Blanking
-            
+
             // At the very start of the VBlank region, NMI is triggered.
             if (scanline >= 241 && x == 1)
             {
                 _PPUSTATUS |= 0x80;
+
+                // Potentially trigger NMI
+                if ((byte)(_PPUCTRL & 0x80) != 0 && !nmiOccurred)
+                {
+                    nmiOccurred = true;
+                    console.cpu.nmi = true;
+                }
             }
-            
+
             x++;
 
+            // Variable line width for the pre-scanline depending on even/odd frame
             if (scanline == -1 && oddFrame && x == 339)
+            {
                 x = 0;
-            else if(x == 340)
+                scanline++;
+            }
+            else if (x == 340)
             {
                 scanline++;
                 x = 0;
             }
 
-            if(scanline == 261)
+            if (scanline == 261)
             {
                 scanline = -1;
+                nmiOccurred = false;
             }
 
             log.info("{0},{1}", x, scanline);
@@ -115,6 +123,10 @@ namespace DotNES.Core
                 // Reading the status register clears the "NMI Occurred" flag, but still returns
                 // the old value of the register before clearing the flag.
                 byte result = _PPUSTATUS;
+                //byte nmiBit = (byte)(nmiOccurred ? 0x80 : 0);
+                //result = (byte)((result & 0x7F) | (nmiBit));
+                nmiOccurred = false;
+
                 _PPUSTATUS &= 0x7F;
                 return result;
             }

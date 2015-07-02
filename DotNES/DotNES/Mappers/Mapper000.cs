@@ -19,6 +19,12 @@ namespace DotNES.Mappers
 
         public override byte read(ushort address)
         {
+            if(address < 0x8000)
+            {
+                Console.Error.WriteLine(string.Format("Invalid read to NROM Mapper @ {0:X4}", address));
+                throw new IndexOutOfRangeException();
+            }
+
             int base_address;
             if(cartridge.PRGROM_16KBankCount == 1)
             {
