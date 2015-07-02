@@ -1554,6 +1554,222 @@ namespace DotNES
 
         #endregion
 
+        #region Bit Manipulation
+
+        #region EOR
+        [OpCode(opcode = 0x49, name = "EOR", bytes = 2)]
+        private int EOR_Immediate()
+        {
+            _A = (byte)(_A ^ argOne());
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x45, name = "EOR", bytes = 2)]
+        private int EOR_ZeroPage()
+        {
+            byte arg = console.memory.read8(argOne());
+            _A = (byte)(_A ^ arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0x55, name = "EOR", bytes = 2)]
+        private int EOR_ZeroPageX()
+        {
+            byte arg = console.memory.read8((byte)((argOne() + _X) & 0xFF));
+            _A = (byte)(_A ^ arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x4D, name = "EOR", bytes = 3)]
+        private int EOR_Absolute()
+        {
+            byte arg = console.memory.read8(argOne16());
+            _A = (byte)(_A ^ arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x5D, name = "EOR", bytes = 3)]
+        private int EOR_AbsoluteX()
+        {
+            return EOR_AbsoluteWithRegister(_X);
+        }
+
+        [OpCode(opcode = 0x59, name = "EOR", bytes = 3)]
+        private int EOR_AbsoluteY()
+        {
+            return EOR_AbsoluteWithRegister(_Y);
+        }
+
+        [OpCode(opcode = 0x41, name = "EOR", bytes = 2)]
+        private int EOR_IndirectX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            ushort indirectAddress = console.memory.read16(address);
+
+            byte arg = console.memory.read8(indirectAddress);
+            _A = (byte)(_A ^ arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x51, name = "EOR", bytes = 2)]
+        private int EOR_IndirectY()
+        {
+            ushort address = console.memory.read16(argOne());
+            ushort addressWithY = (ushort)(address + _Y);
+
+            byte arg = console.memory.read8(addressWithY);
+            _A = (byte)(_A ^ arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            if (samePage(address, addressWithY))
+            {
+                return 5;
+            }
+            else
+            {
+                return 6;
+            }
+        }
+
+        private int EOR_AbsoluteWithRegister(byte registerValue)
+        {
+            ushort address = console.memory.read16(argOne16());
+            ushort addressWithY = (ushort)(address + registerValue);
+            byte arg = console.memory.read8(addressWithY);
+
+            _A = (byte)(_A ^ arg);
+
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+
+
+            if (samePage(address, addressWithY))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+        #endregion
+
+        #region ROR
+        [OpCode(opcode = 0x6A, name = "ROR", bytes = 1)]
+        private int ROR_Accumulator()
+        {
+            byte newCarry = (byte)(_A & 1);
+            _A = (byte)((_A >> 1) | ((_X & 1) << 7));
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(_A);
+            setZeroForOperand(_A);
+
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x66, name = "ROR", bytes = 2)]
+        private int ROR_ZeroPage()
+        {
+            ushort address = argOne();
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)((val >> 1) | ((val & 1) << 7));
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 2;
+            return 5;
+        }
+
+        [OpCode(opcode = 0x76, name = "ROR", bytes = 2)]
+        private int ROR_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne()+_X) & 0xFF);
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)((val >> 1) | ((val & 1) << 7));
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x6E, name = "ROR", bytes = 3)]
+        private int ROR_Absolute()
+        {
+            ushort address = argOne16();
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)((val >> 1) | ((val & 1) << 7));
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 3;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x7E, name = "ROR", bytes = 3)]
+        private int ROR_AbsoluteX()
+        {
+            ushort address = (ushort)(argOne16()+_X);
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)((val >> 1) | ((val & 1) << 7));
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 3;
+            return 7;
+        }
+        #endregion
+
+        #endregion
+
         #region OpcodeHelpers
         private byte argOne()
         {
@@ -1572,14 +1788,14 @@ namespace DotNES
 
         private void pushStack16(ushort val)
         {
-            console.memory.write16(stackAddressOf((byte)(_S - 1)), (ushort)(val-1));
+            console.memory.write16(stackAddressOf((byte)(_S - 1)), (ushort)(val - 1));
             _S -= 2;
         }
 
         private ushort popStack16()
         {
             _S += 2;
-            return (ushort)(console.memory.read16(stackAddressOf((byte)(_S - 1)))+1);
+            return (ushort)(console.memory.read16(stackAddressOf((byte)(_S - 1))) + 1);
         }
 
         private void pushStack8(byte val)
@@ -1684,6 +1900,7 @@ namespace DotNES
         }
 
         #endregion
+        
 
         public CPU(NESConsole console)
         {
@@ -1707,7 +1924,7 @@ namespace DotNES
                 // Also, does it immediately run the next instruction there, or... ?
                 // return 1; 
             }
-            
+
             byte opcode = console.memory.read8(_PC);
 
             MethodInfo opcodeMethod = opcodeFunctions[opcode];
