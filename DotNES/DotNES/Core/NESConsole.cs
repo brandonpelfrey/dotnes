@@ -17,24 +17,43 @@ namespace DotNES.Core
         public APU apu { get; set; }
         public IO io { get; set; }
 
+        private long _CpuCycle;
+        public long CpuCycle 
+        {
+            get {
+                return _CpuCycle;
+            }
+        }
+
         public NESConsole(Cartridge cartridge)
         {
             this.mapper = cartridge.getMapper();
             this.memory = new Memory(this);
-            this.cpu = new CPU( this );
-            this.ppu = new PPU();
+            this.cpu = new CPU(this);
+            this.ppu = new PPU(this);
             this.apu = new APU();
             this.io = new IO();
+        }
+
+        public void coldBoot()
+        {
+            _CpuCycle = 0;
+            this.cpu.coldBoot();
+            this.ppu.coldBoot();
         }
 
         public void loadRom(string romPath)
         {
             byte[] romData = File.ReadAllBytes(romPath);
         }
-        
+
         public void step()
         {
             int cpuCycles = cpu.step();
+            this._CpuCycle += cpuCycles;
+
+            for (int i = 0; i < cpuCycles; ++i)
+                ppu.step();
         }
     }
 }

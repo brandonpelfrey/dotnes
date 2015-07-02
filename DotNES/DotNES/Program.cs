@@ -15,9 +15,19 @@ namespace DotNES
             NESConsole system = new NESConsole( cart );
             system.cpu.coldBoot();
 
-            for (int i = 0; i < 14; ++i)
+            system.ppu.setLoggerEnabled(false);
+            //system.cpu.setLoggerEnabled(false);
+
+            for (int i = 0; i < 100000; ++i)
             {
                 system.step();
+
+                /*
+                if(i > 341 * 240 / 3 && i % 10 == 0)
+                {
+                    Console.ReadKey();
+                }
+                */
             }
 
             Console.Out.WriteLine("Press any key to exit");

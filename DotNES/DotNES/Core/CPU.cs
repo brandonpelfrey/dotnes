@@ -16,6 +16,10 @@ namespace DotNES
     public class CPU
     {
         private Logger log = new Logger("CPU");
+        public void setLoggerEnabled(bool enable)
+        {
+            this.log.setEnabled(enable);
+        }
 
         private MethodInfo[] opcodeFunctions;
 
@@ -1573,6 +1577,16 @@ namespace DotNES
             log.info("Jumped to Reset Vector @ {0:X}", _PC);
         }
 
+        private void jumpToNMIVector()
+        {
+            // Jump to location pointed at by the reset vector
+            pushStack8(_P);
+            pushStack16(_PC);
+
+            _PC = console.memory.read16(0xFFFA);
+            log.info("Jumped to NMI Vector @ {0:X}", _PC);
+        }
+
         #endregion
 
         public CPU(NESConsole console)
@@ -1588,6 +1602,16 @@ namespace DotNES
         /// <returns></returns>
         public int step()
         {
+            if (console.ppu.hasPendingNMI())
+            {
+                jumpToNMIVector();
+                // How many cycles does this actually occupy? i.e. does the 
+                // PPU do anything while the jump-to-vector logic is executing?
+
+                // Also, does it immediately run the next instruction there, or... ?
+                // return 1; 
+            }
+
             byte opcode = console.memory.read8(_PC);
 
             MethodInfo opcodeMethod = opcodeFunctions[opcode];
@@ -1607,20 +1631,20 @@ namespace DotNES
             OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethodInfo, typeof(OpCodeAttribute), false) as OpCodeAttribute;
             byte opcode = opcodeMethodAttribute.opcode;
 
-            string format = "$CYAN${0:X4}$RESET$ : [{2}] $RED$";
+            string format = "{0,-9} [{1:X2} {2:X2} {3:X2} {4:X2} {5:X2}] $CYAN${6:X4}$RESET$ $RED${7}";
 
             int opcodeBytes = opcodeMethodAttribute.bytes;
-            for (int i = 3; i < 8; ++i)
+            for (int i = 8; i < 8 + 6; ++i)
             {
                 format += " {" + i + ":X2}";
 
-                if ((i - 3) + 1 == opcodeBytes)
+                if ((i - 8) + 1 == opcodeBytes)
                 {
                     format += "$RESET$";
                 }
             }
-            
-            log.info(format, _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)));
+
+            log.info(format, console.CpuCycle, _A, _X, _Y, _S, _P, _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)));
         }
 
     }
