@@ -80,8 +80,8 @@ namespace DotNES.Core
         /// <param name="val"></param>
         public void write16(ushort addr, ushort val)
         {
-            write8(addr, (byte)((val & 0xFF00) >> 8));
-            write8((ushort)(addr + 1), (byte)(val & 0xFF));
+            write8(addr, (byte)(val & 0xFF));
+            write8((ushort)(addr + 1), (byte)((val & 0xFF00) >> 8));
         }
 
         /// <summary>

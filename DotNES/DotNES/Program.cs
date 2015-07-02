@@ -17,17 +17,15 @@ namespace DotNES
 
             system.ppu.setLoggerEnabled(false);
             //system.cpu.setLoggerEnabled(false);
-
-            for (int i = 0; i < 100000; ++i)
+            
+            for (int i = 0; i < 1000000; ++i)
             {
                 system.step();
-
-                /*
-                if(i > 341 * 240 / 3 && i % 10 == 0)
+                
+                if(false)
                 {
                     Console.ReadKey();
                 }
-                */
             }
 
             Console.Out.WriteLine("Press any key to exit");

@@ -21,6 +21,11 @@ namespace DotNES
             this.log.setEnabled(enable);
         }
 
+        public ushort getPC()
+        {
+            return _PC;
+        }
+
         private MethodInfo[] opcodeFunctions;
 
         NESConsole console;
@@ -142,6 +147,13 @@ namespace DotNES
         {
             pushStack16((ushort)(_PC + 3));
             _PC = argOne16();
+            return 6;
+        }
+
+        [OpCode(opcode = 0x60, name = "RTS", bytes = 1)]
+        private int RTS_Implied()
+        {
+            _PC = popStack16();
             return 6;
         }
 
@@ -519,6 +531,90 @@ namespace DotNES
 
             setFlag(StatusFlag.Carry, newCarry);
             setNegativeForOperand(val);
+            setZeroForOperand(val);
+
+            _PC += 3;
+            return 7;
+        }
+        #endregion
+
+        #region LSR
+        [OpCode(opcode = 0x4A, name = "LSR", bytes = 1)]
+        private int LSR_Accumulator()
+        {
+            byte newCarry = (byte)(_A & 1);
+            _A = (byte)(_A >> 1);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(0);
+            setZeroForOperand(_A);
+
+            _PC += 1;
+            return 2;
+        }
+
+        [OpCode(opcode = 0x46, name = "LSR", bytes = 2)]
+        private int LSR_ZeroPage()
+        {
+            ushort address = argOne();
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)(val >> 1);
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(0);
+            setZeroForOperand(val);
+
+            _PC += 2;
+            return 5;
+        }
+
+        [OpCode(opcode = 0x56, name = "LSR", bytes = 2)]
+        private int LSR_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)(val >> 1);
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(0);
+            setZeroForOperand(val);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x4E, name = "LSR", bytes = 3)]
+        private int LSR_Absolute()
+        {
+            ushort address = argOne16();
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)(val >> 1);
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(0);
+            setZeroForOperand(val);
+
+            _PC += 3;
+            return 6;
+        }
+
+        [OpCode(opcode = 0x5E, name = "LSR", bytes = 3)]
+        private int LSR_AbsoluteX()
+        {
+            ushort address = (ushort)(argOne16() + _X);
+            byte val = console.memory.read8(address);
+            byte newCarry = (byte)(val & 1);
+            val = (byte)(val >> 1);
+            console.memory.write8(address, val);
+
+            setFlag(StatusFlag.Carry, newCarry);
+            setNegativeForOperand(0);
             setZeroForOperand(val);
 
             _PC += 3;
@@ -1476,19 +1572,19 @@ namespace DotNES
 
         private void pushStack16(ushort val)
         {
-            console.memory.write16(stackAddressOf((byte)(_S - 1)), val);
+            console.memory.write16(stackAddressOf((byte)(_S - 1)), (ushort)(val-1));
             _S -= 2;
         }
 
         private ushort popStack16()
         {
             _S += 2;
-            return console.memory.read16(stackAddressOf((byte)(_S - 1)));
+            return (ushort)(console.memory.read16(stackAddressOf((byte)(_S - 1)))+1);
         }
 
         private void pushStack8(byte val)
         {
-            console.memory.write16(stackAddressOf(_S), val);
+            console.memory.write8(stackAddressOf(_S), val);
             _S -= 1;
         }
 
@@ -1611,13 +1707,14 @@ namespace DotNES
                 // Also, does it immediately run the next instruction there, or... ?
                 // return 1; 
             }
-
+            
             byte opcode = console.memory.read8(_PC);
 
             MethodInfo opcodeMethod = opcodeFunctions[opcode];
             if (opcodeMethod == null)
             {
-                log.error("Unknown opcode {0:X} encountered.", opcode);
+                log.error("Unknown opcode {0:X} encountered @ {1:X4}.", opcode, _PC);
+                throw new NotImplementedException();
                 return 0;
             }
 
@@ -1634,7 +1731,7 @@ namespace DotNES
             string format = "{0,-9} [{1:X2} {2:X2} {3:X2} {4:X2} {5:X2}] $CYAN${6:X4}$RESET$ $RED${7}";
 
             int opcodeBytes = opcodeMethodAttribute.bytes;
-            for (int i = 8; i < 8 + 6; ++i)
+            for (int i = 8; i < 8 + 5; ++i)
             {
                 format += " {" + i + ":X2}";
 
@@ -1644,7 +1741,11 @@ namespace DotNES
                 }
             }
 
-            log.info(format, console.CpuCycle, _A, _X, _Y, _S, _P, _PC, opcode, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)));
+            format += " | {13:X2} {14:X2}";
+            byte stack_top = console.memory.read8(stackAddressOf((byte)((_S + 1) & 0xFF)));
+            byte stack_top_minus_1 = console.memory.read8(stackAddressOf((byte)((_S + 2) & 0xFF)));
+
+            log.info(format, console.CpuCycle, _A, _X, _Y, _S, _P, _PC, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)), stack_top, stack_top_minus_1);
         }
 
     }
