@@ -19,6 +19,15 @@ namespace DotNES.Core
             this.log.setEnabled(enable);
         }
 
+        private long _frameCount = 0;
+        public long FrameCount
+        {
+            get
+            {
+                return _frameCount;
+            }
+        }
+
         private NESConsole console;
 
         private bool nmiOccurred = false;
@@ -92,6 +101,7 @@ namespace DotNES.Core
             {
                 scanline = -1;
                 nmiOccurred = false;
+                _frameCount++;
             }
 
             log.info("{0},{1}", x, scanline);

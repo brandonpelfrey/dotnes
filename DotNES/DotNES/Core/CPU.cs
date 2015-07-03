@@ -338,6 +338,181 @@ namespace DotNES
         }
         #endregion
 
+        #region SBC
+
+        // Really cool property! SBC is nearly identical to ADC:
+        // SBC computes Result = A - M - (1-Carry), where M is the thing to subtract
+        // R = A - M - (1-Carry)
+        // R = A + (~M + 1) - 1 + Carry
+        // R = A + ~M + Carry
+        // Which is exactly the same logic as ADC with ~M instead of M
+
+        [OpCode(opcode = 0xE9, name = "SBC", bytes = 2)]
+        private int SBC_Immediate()
+        {
+            byte arg = argOne();
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 2;
+        }
+
+        [OpCode(opcode = 0xE5, name = "SBC", bytes = 2)]
+        private int SBC_ZeroPage()
+        {
+            byte arg = console.memory.read8(argOne());
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 3;
+        }
+
+        [OpCode(opcode = 0xF5, name = "SBC", bytes = 2)]
+        private int SBC_ZeroPageX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte arg = console.memory.read8(address);
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xED, name = "SBC", bytes = 3)]
+        private int SBC_Absolute()
+        {
+            byte arg = console.memory.read8(argOne16());
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0xFD, name = "SBC", bytes = 3)]
+        private int SBC_AbsoluteX()
+        {
+            return SBC_AbsoluteWithRegister(_X);
+        }
+
+        [OpCode(opcode = 0xF9, name = "SBC", bytes = 3)]
+        private int SBC_AbsoluteY()
+        {
+            return SBC_AbsoluteWithRegister(_X);
+        }
+
+        private int SBC_AbsoluteWithRegister(ushort registerValue)
+        {
+            ushort address = (ushort)(argOne16() + registerValue);
+            byte arg = console.memory.read8(address);
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 3;
+
+            if (samePage(arg, address))
+            {
+                return 4;
+            }
+            else
+            {
+                return 5;
+            }
+        }
+
+        [OpCode(opcode = 0xE1, name = "SBC", bytes = 2)]
+        private int SBC_IndirectX()
+        {
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
+            byte arg = console.memory.read8(console.memory.read16(address));
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            return 6;
+        }
+
+        [OpCode(opcode = 0xF1, name = "SBC", bytes = 2)]
+        private int SBC_IndirectY()
+        {
+            ushort addressWithoutY = console.memory.read16(argOne());
+            ushort addressWithY = (ushort)(addressWithoutY + _Y);
+
+            byte arg = console.memory.read8(addressWithY);
+            arg ^= 0xFF;
+            byte carry = getFlag(StatusFlag.Carry);
+            int result = _A + arg + carry;
+
+            _A = (byte)(result & 0xFF);
+
+            setOverflowForOperands(_A, arg, result);
+            setNegativeForOperand(_A);
+            setCarryForResult(result);
+            setZeroForOperand(_A);
+
+            _PC += 2;
+            if (samePage(addressWithY, addressWithoutY))
+            {
+                return 5;
+            }
+            else
+            {
+                return 6;
+            }
+        }
+        #endregion
+
         #region AND
         [OpCode(opcode = 0x29, name = "AND", bytes = 2)]
         private int AND_Immediate()
@@ -2162,7 +2337,8 @@ namespace DotNES
                 return 0;
             }
 
-            printPreInvoke(opcodeMethod);
+            if(log.IsEnabled)
+                printPreInvoke(opcodeMethod);
 
             return (int)opcodeMethod.Invoke(this, null);
         }
@@ -2185,15 +2361,11 @@ namespace DotNES
                 }
             }
 
-            format += " | {13:X2} {14:X2} .. {15:X4}";
-            //byte stack_top = console.memory.read8(stackAddressOf((byte)((_S + 1) & 0xFF)));
-            //byte stack_top_minus_1 = console.memory.read8(stackAddressOf((byte)((_S + 2) & 0xFF)));
-            byte stack_top = console.memory.read8(0);
-            byte stack_top_minus_1 = console.memory.read8(1);
+            format += " | {13:X2} {14:X2}";
+            byte stack_top = console.memory.read8(stackAddressOf((byte)((_S + 1) & 0xFF)));
+            byte stack_top_minus_1 = console.memory.read8(stackAddressOf((byte)((_S + 2) & 0xFF)));
 
-            ushort Q1 = console.memory.read16(0x51A);
-
-            log.info(format, console.CpuCycle, _A, _X, _Y, _S, _P, _PC, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)), stack_top, stack_top_minus_1, Q1);
+            log.info(format, console.CPUCyclesExecuted, _A, _X, _Y, _S, _P, _PC, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)), stack_top, stack_top_minus_1);
         }
 
     }

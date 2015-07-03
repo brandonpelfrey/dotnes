@@ -24,12 +24,20 @@ namespace DotNES.Utilities
 
         public Logger(string className)
         {
-            this.className = className.Substring(0,3);
+            this.className = className.Substring(0, 3);
         }
-        
+
         public void setEnabled(bool enabled)
         {
             this.enabled = enabled;
+        }
+
+        public bool IsEnabled
+        {
+            get
+            {
+                return enabled;
+            }
         }
 
         public void info(string message, params object[] args)

@@ -28,7 +28,7 @@ namespace DotNES.Mappers
             int base_address;
             if(cartridge.PRGROM_16KBankCount == 1)
             {
-                base_address = (ushort)(address > 0xC000 ? 0xC000 : 0x8000);
+                base_address = (ushort)(address >= 0xC000 ? 0xC000 : 0x8000);
             }
             else
             {

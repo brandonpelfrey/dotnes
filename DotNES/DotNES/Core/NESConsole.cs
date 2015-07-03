@@ -18,7 +18,7 @@ namespace DotNES.Core
         public IO io { get; set; }
 
         private long _CpuCycle;
-        public long CpuCycle 
+        public long CPUCyclesExecuted 
         {
             get {
                 return _CpuCycle;
