@@ -167,6 +167,16 @@ namespace DotNES
             return 6;
         }
 
+        [OpCode(opcode = 0x00, name = "BRK", bytes = 1)]
+        private int BRK_Implied()
+        {
+            pushStack8(_P);
+            pushStack16(_PC);
+
+            _PC = console.memory.read16(0xFFFE);
+            return 7;
+        }
+
         [OpCode(opcode = 0xEA, name = "NOP", bytes = 1)]
         private int NOP_Implied()
         {
@@ -936,24 +946,24 @@ namespace DotNES
 
         #region CPY
 
-        [OpCode(opcode = 0xC0, name = "CMY", bytes = 2)]
-        private int CMY_Immeditate()
+        [OpCode(opcode = 0xC0, name = "CPY", bytes = 2)]
+        private int CPY_Immeditate()
         {
             compareValues(_Y, argOne());
             _PC += 2;
             return 2;
         }
 
-        [OpCode(opcode = 0xC4, name = "CMY", bytes = 2)]
-        private int CMY_ZeroPage()
+        [OpCode(opcode = 0xC4, name = "CPY", bytes = 2)]
+        private int CPY_ZeroPage()
         {
             compareValues(_Y, console.memory.read8(argOne()));
             _PC += 2;
             return 3;
         }
 
-        [OpCode(opcode = 0xCC, name = "CMY", bytes = 3)]
-        private int CMY_Absolute()
+        [OpCode(opcode = 0xCC, name = "CPY", bytes = 3)]
+        private int CPY_Absolute()
         {
             compareValues(_Y, console.memory.read8(argOne16()));
             _PC += 3;
@@ -1741,6 +1751,36 @@ namespace DotNES
 
         #region Bit Manipulation
 
+        #region BIT
+        [OpCode(opcode = 0x2C, name = "BIT", bytes = 3)]
+        private int BIT_Absolute()
+        {
+            byte arg = console.memory.read8(argOne16());
+            byte result = (byte)(_A & arg);
+
+            setNegativeForOperand(arg);
+            setZeroForOperand(result);
+            setFlag(StatusFlag.Overflow, (byte)((arg & 0x40) != 0 ? 1 : 0));
+
+            _PC += 3;
+            return 4;
+        }
+
+        [OpCode(opcode = 0x24, name = "BIT", bytes = 2)]
+        private int BIT_ZeroPage()
+        {
+            byte arg = console.memory.read8(argOne());
+            byte result = (byte)(_A & arg);
+
+            setNegativeForOperand(arg);
+            setZeroForOperand(result);
+            setFlag(StatusFlag.Overflow, (byte)((arg & 0x40) != 0 ? 1 : 0));
+
+            _PC += 2;
+            return 3;
+        }
+        #endregion
+
         #region EOR
         [OpCode(opcode = 0x49, name = "EOR", bytes = 2)]
         private int EOR_Immediate()
@@ -1984,7 +2024,7 @@ namespace DotNES
             setZeroForOperand(_A);
 
             _PC += 3;
-            
+
             if (samePage(address, addressWithY))
             {
                 return 4;
@@ -2122,7 +2162,7 @@ namespace DotNES
         [OpCode(opcode = 0x76, name = "ROR", bytes = 2)]
         private int ROR_ZeroPageX()
         {
-            ushort address = (ushort)((argOne()+_X) & 0xFF);
+            ushort address = (ushort)((argOne() + _X) & 0xFF);
             byte val = console.memory.read8(address);
             byte newCarry = (byte)(val & 1);
             val = (byte)((val >> 1) | ((val & 1) << 7));
@@ -2156,7 +2196,7 @@ namespace DotNES
         [OpCode(opcode = 0x7E, name = "ROR", bytes = 3)]
         private int ROR_AbsoluteX()
         {
-            ushort address = (ushort)(argOne16()+_X);
+            ushort address = (ushort)(argOne16() + _X);
             byte val = console.memory.read8(address);
             byte newCarry = (byte)(val & 1);
             val = (byte)((val >> 1) | ((val & 1) << 7));
@@ -2303,7 +2343,7 @@ namespace DotNES
         }
 
         #endregion
-        
+
 
         public CPU(NESConsole console)
         {
@@ -2324,7 +2364,7 @@ namespace DotNES
                 jumpToNMIVector();
 
                 // Assuming that NMI consumes one cycle. Confirm somewhere?
-                return 1; 
+                return 1;
             }
 
             byte opcode = console.memory.read8(_PC);
@@ -2337,7 +2377,7 @@ namespace DotNES
                 return 0;
             }
 
-            if(log.IsEnabled)
+            if (log.IsEnabled)
                 printPreInvoke(opcodeMethod);
 
             return (int)opcodeMethod.Invoke(this, null);
