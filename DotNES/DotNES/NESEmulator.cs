@@ -39,6 +39,7 @@ namespace DotNES
             system.cpu.coldBoot();
             system.ppu.setLoggerEnabled(false);
             system.cpu.setLoggerEnabled(false);
+            system.io.setLoggerEnabled(false);
         }
 
         protected override void LoadContent()

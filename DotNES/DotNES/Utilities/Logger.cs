@@ -24,7 +24,7 @@ namespace DotNES.Utilities
 
         public Logger(string className)
         {
-            this.className = className.Substring(0, 3);
+            this.className = className.Substring(0, Math.Min(className.Length, 3));
         }
 
         public void setEnabled(bool enabled)

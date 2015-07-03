@@ -1337,7 +1337,7 @@ namespace DotNES
             return LDA_AbsoluteWithRegister(_Y);
         }
 
-        private int LDA_AbsoluteWithRegister(ushort registerValue)
+        private int LDA_AbsoluteWithRegister(byte registerValue)
         {
             ushort arg = argOne16();
             ushort address = (ushort)(arg + registerValue);

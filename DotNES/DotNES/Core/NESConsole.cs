@@ -34,7 +34,7 @@ namespace DotNES.Core
             this.cpu = new CPU(this);
             this.ppu = new PPU(this);
             this.apu = new APU();
-            this.io = new IO();
+            this.io = new IO(KeyboardController.DEFAULT_PLAYER_ONE_CONTROLLER, KeyboardController.DEFAULT_PLAYER_TWO_CONTROLLER);
         }
 
         public void coldBoot()
