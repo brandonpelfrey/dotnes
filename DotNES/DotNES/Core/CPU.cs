@@ -2361,6 +2361,7 @@ namespace DotNES
             if (nmi)
             {
                 nmi = false;
+                Console.Out.WriteLine("NMI Triggered #" + console.ppu.FrameCount);
                 jumpToNMIVector();
 
                 // Assuming that NMI consumes one cycle. Confirm somewhere?

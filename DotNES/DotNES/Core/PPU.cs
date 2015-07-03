@@ -65,14 +65,28 @@ namespace DotNES.Core
             }
         }
 
+        private uint reverseBytes(uint num)
+        {
+            return ((num >> 24) & 0xff) |
+                   ((num << 8) & 0xff0000) |
+                   ((num >> 8) & 0xff00) |
+                   ((num << 24) & 0xff000000);
+
+        }
+
         public void assembleImage()
         {
             // clear the image
             for (int i = 0; i < _imageData.Length; ++i)
                 _imageData[i] = 0;
 
-            ushort bg_pattern_base = (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
+            // NOTE HACKS TODO BBQ The general method here cannot handle scrolling whatsoever.
 
+            // There are two background pattern table possibilities, use the one selected by PPUCTRL.
+            ushort bg_pattern_base = (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
+            ushort attribute_table_base = 0x23C0; // Attribute Table base for the first Name Table
+
+            // Walk over each tile in the name table and draw to the output image.
             for (int nti = 0; nti < 32; ++nti)
                 for (int ntj = 0; ntj < 30; ++ntj)
                 {
@@ -82,6 +96,17 @@ namespace DotNES.Core
                     // (Each pattern takes 16 bytes of data to express)
                     ushort pt_index = (ushort)(RAM[0x2000 + nt_index] * 16);
 
+                    int attributeTableIndex = ntj / 2 * 8 + nti / 2;
+                    byte attributeTableEntry = RAM[attribute_table_base + attributeTableIndex];
+
+                    // which pallete to derive the color from
+                    int which_palette = 0;
+                    which_palette |= nti % 2 == 1 ? 2 : 0;
+                    which_palette |= ntj % 2 == 1 ? 4 : 0;
+
+                    // Use the previous value to select the two-bit palette number
+                    byte palette_num = (byte)((attributeTableEntry >> which_palette) & 3);
+
                     // For each pixel in the pattern
                     for (int j = 0; j < 8; ++j)
                     {
@@ -90,21 +115,23 @@ namespace DotNES.Core
 
                         for (int i = 0; i < 8; ++i)
                         {
-                            // which pallete to derive the color from
-                            // TODO
-
                             // Which color in the chosen palette
-                            byte lowBit = (byte)((lowBits >> (7-i)) & 1);
-                            byte highBit = (byte)((highBits >> (7-i)) & 1);
-                            byte color_index = (byte)(lowBit + highBit*2);
+                            byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
+                            byte highBit = (byte)((highBits >> (7 - i)) & 1);
+                            byte color_index = (byte)(lowBit + highBit * 2);
 
                             int image_index = (ntj * 8 + j) * 256 + (nti * 8 + i);
-                            if(color_index != 0)
+                            if (color_index > 0)
                             {
-                                _imageData[image_index] = 0xFFFFFFFF;
+                                uint RGB_index = RAM[0x3F01 + palette_num + color_index - 1];
+                                uint pixelColor = reverseBytes(RGBA_PALETTE[RGB_index & 0x3F]);
+
+                                _imageData[image_index] = pixelColor;
                             }
                             else
                             {
+                                uint universalBackgroundColorIndex = RAM[0x3F00];
+                                uint pixelColor = reverseBytes(RGBA_PALETTE[universalBackgroundColorIndex]);
                                 _imageData[image_index] = 0xFF000000;
                             }
                         }
