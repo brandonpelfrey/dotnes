@@ -17,6 +17,11 @@ namespace DotNES.Mappers
             this.cartridge = cartridge;
         }
 
+        public override bool mapsCHR()
+        {
+            return true;
+        }
+
         public override byte read(ushort address)
         {
             if(address < 0x8000)
@@ -37,6 +42,11 @@ namespace DotNES.Mappers
 
             int offset = address - base_address;
             return cartridge.PRGRomData[offset];
+        }
+
+        public override byte readCHR(ushort address)
+        {
+            return cartridge.CHRRomData[address];
         }
 
         public override void write(ushort address, byte val)

@@ -16,6 +16,7 @@ namespace DotNES.Core
         public PPU ppu { get; set; }
         public APU apu { get; set; }
         public IO io { get; set; }
+        public Cartridge cartridge { get; set; }
 
         private long _CpuCycle;
         public long CPUCyclesExecuted 
@@ -27,6 +28,7 @@ namespace DotNES.Core
 
         public NESConsole(Cartridge cartridge)
         {
+            this.cartridge = cartridge;
             this.mapper = cartridge.getMapper();
             this.memory = new Memory(this);
             this.cpu = new CPU(this);
