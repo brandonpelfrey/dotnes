@@ -30,7 +30,6 @@ namespace DotNES.Core
 
         private NESConsole console;
 
-        private bool nmiOccurred = false;
         private bool oddFrame = false;
 
         // We are not yet at a point where care to emulate the NTSC palette generation
@@ -65,25 +64,12 @@ namespace DotNES.Core
             }
         }
 
-        private uint reverseBytes(uint num)
+        private void drawBackground()
         {
-            return ((num >> 24) & 0xff) |
-                   ((num << 8) & 0xff0000) |
-                   ((num >> 8) & 0xff00) |
-                   ((num << 24) & 0xff000000);
-
-        }
-
-        public void assembleImage()
-        {
-            // clear the image
-            for (int i = 0; i < _imageData.Length; ++i)
-                _imageData[i] = 0;
-
             // NOTE HACKS TODO BBQ The general method here cannot handle scrolling whatsoever.
 
             // There are two background pattern table possibilities, use the one selected by PPUCTRL.
-            ushort bg_pattern_base = (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
+            ushort bg_pattern_base = 0x1000; // (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
             ushort attribute_table_base = 0x23C0; // Attribute Table base for the first Name Table
 
             // Walk over each tile in the name table and draw to the output image.
@@ -124,22 +110,108 @@ namespace DotNES.Core
                             if (color_index > 0)
                             {
                                 uint RGB_index = RAM[0x3F01 + palette_num + color_index - 1];
-                                uint pixelColor = reverseBytes(RGBA_PALETTE[RGB_index & 0x3F]);
+                                uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
 
                                 _imageData[image_index] = pixelColor;
                             }
                             else
                             {
                                 uint universalBackgroundColorIndex = RAM[0x3F00];
-                                uint pixelColor = reverseBytes(RGBA_PALETTE[universalBackgroundColorIndex]);
-                                _imageData[image_index] = 0xFF000000;
+                                uint pixelColor = RGBA_PALETTE[universalBackgroundColorIndex];
+                                _imageData[image_index] = pixelColor;
                             }
                         }
                     }
                 }
         }
 
+        private void drawSprites()
+        {
+            uint universalBackgroundColor = RGBA_PALETTE[RAM[0x3F00]];
+
+            // This is ignored for 8x16 sprites -- they specify the page in their attributes
+            ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
+
+            for (int oam_index = 0; oam_index < 256; ++oam_index)
+            {
+                byte sprite_y = OAM[oam_index * 4 + 0];
+                byte pt_index = OAM[oam_index * 4 + 1];
+                byte attributes = OAM[oam_index * 4 + 2];
+                byte sprite_x = OAM[oam_index * 4 + 3];
+
+                byte palette_number = (byte)(attributes & 3);
+                bool inFrontOfBG = (attributes & 0x20) != 0;
+                bool flipHorizontal = (attributes & 0x40) != 0;
+                bool flipVertical = (attributes & 0x80) != 0;
+
+                // TODO: The following code is only valid for 8x8 sprites
+
+                for (int tj = 0; tj < 8; ++tj)
+                {
+                    byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + tj));
+                    byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + tj + 8));
+
+                    for (int ti = 0; ti < 8; ++ti)
+                    {
+                        // Transform from sprite coordinates to flip-corrected coordinates...
+                        int i = flipHorizontal ? 7 - ti : ti;
+                        int j = flipVertical ? 7 - tj : tj;
+
+                        byte lowBit = (byte)((lowBits >> (7 - ti)) & 1);
+                        byte highBit = (byte)((highBits >> (7 - ti)) & 1);
+                        byte color_index = (byte)(lowBit + highBit * 2);
+
+                        // ... and then to screen space coordinates
+                        int px = sprite_x + i;
+                        int py = sprite_y + j;
+
+                        // Is this sprite's pixel on the screen?
+                        if (px >= 256 || py >= 240) continue;
+
+                        int image_index = 256 * py + px;
+
+                        if (color_index > 0)
+                        {
+                            // TODO : Respect BG/Sprite precedence
+                            uint RGB_index = RAM[0x3F11 + palette_number * 4 + color_index - 1];
+                            uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+
+                            _imageData[image_index] = pixelColor;
+                        }
+                        else
+                        {
+                            // Do sprites draw a background color or simply defer to BG?
+                            /*
+                            uint universalBackgroundColorIndex = RAM[0x3F00];
+                            uint pixelColor = RGBA_PALETTE[universalBackgroundColorIndex];
+                            _imageData[image_index] = pixelColor;
+                            */
+                        }
+
+                    }
+                }
+
+            }
+        }
+
+        public void assembleImage()
+        {
+            // clear the image
+            for (int i = 0; i < _imageData.Length; ++i)
+                _imageData[i] = 0x000000FF;
+
+            // Should we draw the background?
+            if ((_PPUMASK & 8) != 0)
+                drawBackground();
+
+            // Should we draw the sprites?
+            if ((_PPUMASK & 0x10) != 0)
+                drawSprites();
+
+        }
+
         private byte[] RAM = new byte[0x4000];
+        private byte[] OAM = new byte[0x400];
 
         // Current column and scanline (int to support pre-scanline convention -1, etc.)
         private int x, scanline;
@@ -150,7 +222,7 @@ namespace DotNES.Core
         byte _PPUMASK;
         byte _PPUSTATUS;
 
-        byte _PPUSCROLL;
+        ushort _PPUSCROLL;
         ushort _PPUADDR;
         byte _PPUDATA;
 
@@ -185,10 +257,9 @@ namespace DotNES.Core
             {
                 _PPUSTATUS |= 0x80;
 
-                // Potentially trigger NMI
-                if ((byte)(_PPUCTRL & 0x80) != 0 && !nmiOccurred)
+                // Potentially trigger NMI for start of VBlank
+                if ((byte)(_PPUCTRL & 0x80) != 0 && scanline == 241)
                 {
-                    nmiOccurred = true;
                     console.cpu.nmi = true;
                 }
             }
@@ -209,12 +280,12 @@ namespace DotNES.Core
 
             if (scanline == 261)
             {
+                // We're no longer in VBlank region
+                _PPUSTATUS = (byte)(_PPUSTATUS & 0x7F);
+
                 scanline = -1;
-                nmiOccurred = false;
                 _frameCount++;
             }
-
-            log.info("{0},{1}", x, scanline);
         }
 
         public void step()
@@ -249,7 +320,11 @@ namespace DotNES.Core
 
         public byte read(ushort addr)
         {
-            if (addr == 0x2002)
+            if (addr == 0x2001)
+            {
+                return _PPUMASK;
+            }
+            else if (addr == 0x2002)
             {
                 // Reading the status register clears the "NMI Occurred" flag, but still returns
                 // the old value of the register before clearing the flag.
@@ -259,12 +334,13 @@ namespace DotNES.Core
             }
             else if (addr == 0x2007)
             {
+                Console.WriteLine(string.Format("PPU read @ {0:X4}", _PPUADDR));
                 byte value = RAM[_PPUADDR & 0x3FFF];
                 int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
                 _PPUADDR = (ushort)((_PPUADDR + increment) & 0xFFFF);
                 return value;
             }
-            log.error("Unimplemented read to PPU @ {0:X}", addr);
+            Console.WriteLine(string.Format("Unimplemented read to PPU @ {0:X}", addr));
             return 0;
         }
 
@@ -273,6 +349,18 @@ namespace DotNES.Core
             if (addr == 0x2000)
             {
                 _PPUCTRL = val;
+            }
+            else if (addr == 0x2001)
+            {
+                _PPUMASK = val;
+            }
+            else if (addr == 0x2003)
+            {
+                _OAMADDR = val;
+            }
+            else if (addr == 0x2005)
+            {
+                _PPUSCROLL = (ushort)((_PPUSCROLL << 8) | (val & 0xFF));
             }
             else if (addr == 0x2006)
             {
@@ -284,13 +372,24 @@ namespace DotNES.Core
                 // Write val to the location pointed to by PPUADDR
                 RAM[_PPUADDR & 0x3FFF] = val;
 
+                Console.Out.WriteLine(string.Format("Write to PPU @ {0:X4}", _PPUADDR));
+
                 // PPUADDR increments by a configurable amount stored in PPUCTRL
                 int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
-                _PPUADDR = (ushort)((_PPUADDR + increment) & 0xFFFF);
+                _PPUADDR = (ushort)((_PPUADDR + increment) & 0x3FFF);
+            }
+            else if (addr == 0x4014)
+            {
+                // Writing XX to 0x4014 causes CPU RAM 0xXX00-0xXXFF to be written to OAM
+                for (int offset = 0; offset <= 0xFF; ++offset)
+                {
+                    ushort read_address = (ushort)((val << 8) + offset);
+                    OAM[offset] = console.memory.read8(read_address);
+                }
             }
             else
             {
-                log.error("Unimplemented write 0x{0:X2} to PPU @ {1:X4}", val, addr);
+                Console.Error.WriteLine("Unimplemented write {0:X2} to PPU @ {1:X4}", val, addr);
             }
         }
     }

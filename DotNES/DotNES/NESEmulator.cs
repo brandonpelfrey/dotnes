@@ -27,7 +27,7 @@ namespace DotNES
             graphics.PreferredBackBufferWidth = 512;
             graphics.PreferredBackBufferHeight = 512;
             IsMouseVisible = true;
-            Window.AllowUserResizing = false;
+            Window.AllowUserResizing = true;
 
             initializeSystem();
         }
@@ -58,7 +58,8 @@ namespace DotNES
             int screenHeight = graphics.GraphicsDevice.PresentationParameters.BackBufferHeight;
             Rectangle screenRectangle = new Rectangle(0, 0, screenWidth, screenHeight);
 
-            spriteBatch.Begin();
+            // Draw without any interpolation
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp);
             spriteBatch.Draw(texture, screenRectangle, Color.White);
             spriteBatch.End();
 
@@ -77,13 +78,22 @@ namespace DotNES
             base.Update(gameTime);
         }
 
+        private uint reverseBytes(uint num)
+        {
+            return ((num >> 24) & 0xff) |
+                   ((num << 8) & 0xff0000) |
+                   ((num >> 8) & 0xff00) |
+                   ((num << 24) & 0xff000000);
+
+        }
+
         private void updateDrawTexture()
         {
             for (int i = 0; i < 256; ++i)
                 for (int j = 0; j < 256; ++j)
                 {
                     if (j < 240)
-                        textureData[j * 256 + i] = system.ppu.ImageData[j * 256 + i];
+                        textureData[j * 256 + i] = reverseBytes(system.ppu.ImageData[j * 256 + i]);
                     else
                         textureData[j * 256 + i] = 0xFF000000;
                 }
@@ -102,7 +112,7 @@ namespace DotNES
                     break;
             }
             if(Window != null && Window.Title != null)
-            Window.Title = string.Format("DotNES : {0} Instructions Executed Last Frame", steps);
+            Window.Title = string.Format("DotNES : Frame {0}", system.ppu.FrameCount);
         }
     }
 }

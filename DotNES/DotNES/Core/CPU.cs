@@ -974,9 +974,12 @@ namespace DotNES
 
         private void compareValues(byte registerValue, byte argumentValue)
         {
-            byte result = (byte)(registerValue - argumentValue);
-            setZeroForOperand(result);
-            setNegativeForOperand(result);
+            byte result = registerValue;
+            result += 1;
+            result += (byte)(~argumentValue);
+
+            setZeroForOperand((byte)result);
+            setNegativeForOperand((byte)result);
             setFlag(StatusFlag.Carry, (byte)(registerValue >= argumentValue ? 1 : 0));
         }
 
@@ -985,49 +988,49 @@ namespace DotNES
         #endregion
 
         #region Branch
-        [OpCode(opcode = 0x90, name = "BCC", bytes = 1)]
+        [OpCode(opcode = 0x90, name = "BCC", bytes = 2)]
         private int BCC_Relative()
         {
             return Branch(getFlag(StatusFlag.Carry) == 0);
         }
 
-        [OpCode(opcode = 0xB0, name = "BCS", bytes = 1)]
+        [OpCode(opcode = 0xB0, name = "BCS", bytes = 2)]
         private int BCS_Relative()
         {
             return Branch(getFlag(StatusFlag.Carry) == 1);
         }
 
-        [OpCode(opcode = 0xF0, name = "BEQ", bytes = 1)]
+        [OpCode(opcode = 0xF0, name = "BEQ", bytes = 2)]
         private int BEQ_Relative()
         {
             return Branch(getFlag(StatusFlag.Zero) == 1);
         }
 
-        [OpCode(opcode = 0xD0, name = "BNE", bytes = 1)]
+        [OpCode(opcode = 0xD0, name = "BNE", bytes = 2)]
         private int BNE_Relative()
         {
             return Branch(getFlag(StatusFlag.Zero) == 0);
         }
 
-        [OpCode(opcode = 0x30, name = "BMI", bytes = 1)]
+        [OpCode(opcode = 0x30, name = "BMI", bytes = 2)]
         private int BMI_Relative()
         {
             return Branch(getFlag(StatusFlag.Negative) == 1);
         }
 
-        [OpCode(opcode = 0x10, name = "BPL", bytes = 1)]
+        [OpCode(opcode = 0x10, name = "BPL", bytes = 2)]
         private int BPL_Relative()
         {
             return Branch(getFlag(StatusFlag.Negative) == 0);
         }
 
-        [OpCode(opcode = 0x50, name = "BVC", bytes = 1)]
+        [OpCode(opcode = 0x50, name = "BVC", bytes = 2)]
         private int BVC_Relative()
         {
             return Branch(getFlag(StatusFlag.Overflow) == 0);
         }
 
-        [OpCode(opcode = 0x70, name = "BVS", bytes = 1)]
+        [OpCode(opcode = 0x70, name = "BVS", bytes = 2)]
         private int BVS_Relative()
         {
             return Branch(getFlag(StatusFlag.Overflow) == 1);
@@ -2131,8 +2134,9 @@ namespace DotNES
         [OpCode(opcode = 0x6A, name = "ROR", bytes = 1)]
         private int ROR_Accumulator()
         {
+            byte oldCarry = (byte)(getFlag(StatusFlag.Carry) != 0 ? 1 : 0);
             byte newCarry = (byte)(_A & 1);
-            _A = (byte)((_A >> 1) | ((_A & 1) << 7));
+            _A = (byte)((_A >> 1) | (oldCarry << 7));
 
             setFlag(StatusFlag.Carry, newCarry);
             setNegativeForOperand(_A);
@@ -2147,8 +2151,9 @@ namespace DotNES
         {
             ushort address = argOne();
             byte val = console.memory.read8(address);
+            byte oldCarry = (byte)(getFlag(StatusFlag.Carry) != 0 ? 1 : 0);
             byte newCarry = (byte)(val & 1);
-            val = (byte)((val >> 1) | ((val & 1) << 7));
+            val = (byte)((val >> 1) | (oldCarry << 7));
             console.memory.write8(address, val);
 
             setFlag(StatusFlag.Carry, newCarry);
@@ -2164,8 +2169,9 @@ namespace DotNES
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
             byte val = console.memory.read8(address);
+            byte oldCarry = (byte)(getFlag(StatusFlag.Carry) != 0 ? 1 : 0);
             byte newCarry = (byte)(val & 1);
-            val = (byte)((val >> 1) | ((val & 1) << 7));
+            val = (byte)((val >> 1) | (oldCarry << 7));
             console.memory.write8(address, val);
 
             setFlag(StatusFlag.Carry, newCarry);
@@ -2181,8 +2187,9 @@ namespace DotNES
         {
             ushort address = argOne16();
             byte val = console.memory.read8(address);
+            byte oldCarry = (byte)(getFlag(StatusFlag.Carry) != 0 ? 1 : 0);
             byte newCarry = (byte)(val & 1);
-            val = (byte)((val >> 1) | ((val & 1) << 7));
+            val = (byte)((val >> 1) | (oldCarry << 7));
             console.memory.write8(address, val);
 
             setFlag(StatusFlag.Carry, newCarry);
@@ -2198,8 +2205,9 @@ namespace DotNES
         {
             ushort address = (ushort)(argOne16() + _X);
             byte val = console.memory.read8(address);
+            byte oldCarry = (byte)(getFlag(StatusFlag.Carry) != 0 ? 1 : 0);
             byte newCarry = (byte)(val & 1);
-            val = (byte)((val >> 1) | ((val & 1) << 7));
+            val = (byte)((val >> 1) | (oldCarry << 7));
             console.memory.write8(address, val);
 
             setFlag(StatusFlag.Carry, newCarry);
@@ -2361,7 +2369,6 @@ namespace DotNES
             if (nmi)
             {
                 nmi = false;
-                Console.Out.WriteLine("NMI Triggered #" + console.ppu.FrameCount);
                 jumpToNMIVector();
 
                 // Assuming that NMI consumes one cycle. Confirm somewhere?
@@ -2375,7 +2382,6 @@ namespace DotNES
             {
                 log.error("Unknown opcode {0:X} encountered @ {1:X4}.", opcode, _PC);
                 throw new NotImplementedException();
-                return 0;
             }
 
             if (log.IsEnabled)
@@ -2389,7 +2395,7 @@ namespace DotNES
             OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethodInfo, typeof(OpCodeAttribute), false) as OpCodeAttribute;
             byte opcode = opcodeMethodAttribute.opcode;
 
-            string format = "{0,-9} [{1:X2} {2:X2} {3:X2} {4:X2} {5:X2}] $CYAN${6:X4}$RESET$ $RED${7}";
+            string format = "{0,-9} [{1:X2} {2:X2} {3:X2} {4:X2} {5}] $CYAN${6:X4}$RESET$ $RED${7}";
 
             int opcodeBytes = opcodeMethodAttribute.bytes;
             for (int i = 8; i < 8 + 5; ++i)
@@ -2402,11 +2408,22 @@ namespace DotNES
                 }
             }
 
+            // Make a human-readable form of the status register
+            // NVssDIZC
+            string Pstring = "";
+            Pstring += getFlag(StatusFlag.Negative) != 0 ? "N" : ".";
+            Pstring += getFlag(StatusFlag.Overflow) != 0 ? "V" : ".";
+            Pstring += "...";
+            Pstring += getFlag(StatusFlag.InterruptDisable) != 0 ? "I" : ".";
+            Pstring += getFlag(StatusFlag.Zero) != 0 ? "Z" : ".";
+            Pstring += getFlag(StatusFlag.Carry) != 0 ? "C" : ".";
+
+            // Top two bytes on the stack
             format += " | {13:X2} {14:X2}";
             byte stack_top = console.memory.read8(stackAddressOf((byte)((_S + 1) & 0xFF)));
             byte stack_top_minus_1 = console.memory.read8(stackAddressOf((byte)((_S + 2) & 0xFF)));
 
-            log.info(format, console.CPUCyclesExecuted, _A, _X, _Y, _S, _P, _PC, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)), stack_top, stack_top_minus_1);
+            log.info(format, console.CPUCyclesExecuted, _A, _X, _Y, _S, Pstring, _PC, opcodeMethodAttribute.name, opcode, console.memory.read8((ushort)(_PC + 1)), console.memory.read8((ushort)(_PC + 2)), console.memory.read8((ushort)(_PC + 3)), console.memory.read8((ushort)(_PC + 4)), stack_top, stack_top_minus_1);
         }
 
     }
