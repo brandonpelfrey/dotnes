@@ -34,7 +34,7 @@ namespace DotNES.Core
                 // 0x2000 - 0x2007 repeats every 8 bytes up until 0x3FFF
                 console.ppu.write(addr, val);
             }
-            else if (addr < 0x4016 || addr == 0x4017)
+            else if (addr < 0x4014 || addr == 0x4015 || addr == 0x4017)
             {
                 console.apu.write(addr, val);
             }

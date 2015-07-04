@@ -53,7 +53,6 @@ namespace DotNES.Core
         {
             int cpuCycles = cpu.step();
             this._CpuCycle += cpuCycles;
-
             for (int i = 0; i < cpuCycles; ++i)
                 ppu.step();
         }
