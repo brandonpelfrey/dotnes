@@ -69,7 +69,7 @@ namespace DotNES.Core
             // NOTE HACKS TODO BBQ The general method here cannot handle scrolling whatsoever.
 
             // There are two background pattern table possibilities, use the one selected by PPUCTRL.
-            ushort bg_pattern_base = 0x1000; // (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
+            ushort bg_pattern_base =  (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
             ushort attribute_table_base = 0x23C0; // Attribute Table base for the first Name Table
 
             // Walk over each tile in the name table and draw to the output image.
@@ -82,13 +82,13 @@ namespace DotNES.Core
                     // (Each pattern takes 16 bytes of data to express)
                     ushort pt_index = (ushort)(RAM[0x2000 + nt_index] * 16);
 
-                    int attributeTableIndex = ntj / 2 * 8 + nti / 2;
+                    int attributeTableIndex = (ntj / 4) * 8 + (nti / 4);
                     byte attributeTableEntry = RAM[attribute_table_base + attributeTableIndex];
 
                     // which pallete to derive the color from
                     int which_palette = 0;
-                    which_palette |= nti % 2 == 1 ? 2 : 0;
-                    which_palette |= ntj % 2 == 1 ? 4 : 0;
+                    which_palette |= nti % 4 >= 2 ? 2 : 0;
+                    which_palette |= ntj % 4 >= 2 ? 4 : 0;
 
                     // Use the previous value to select the two-bit palette number
                     byte palette_num = (byte)((attributeTableEntry >> which_palette) & 3);
@@ -109,7 +109,7 @@ namespace DotNES.Core
                             int image_index = (ntj * 8 + j) * 256 + (nti * 8 + i);
                             if (color_index > 0)
                             {
-                                uint RGB_index = RAM[0x3F01 + palette_num + color_index - 1];
+                                byte RGB_index = RAM[0x3F00 + 4*palette_num + color_index];
                                 uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
 
                                 _imageData[image_index] = pixelColor;
@@ -140,7 +140,7 @@ namespace DotNES.Core
                 byte sprite_x = OAM[oam_index * 4 + 3];
 
                 byte palette_number = (byte)(attributes & 3);
-                bool inFrontOfBG = (attributes & 0x20) != 0;
+                bool inFrontOfBG = (attributes & 0x20) == 0;
                 bool flipHorizontal = (attributes & 0x40) != 0;
                 bool flipVertical = (attributes & 0x80) != 0;
 
@@ -173,10 +173,13 @@ namespace DotNES.Core
                         if (color_index > 0)
                         {
                             // TODO : Respect BG/Sprite precedence
-                            uint RGB_index = RAM[0x3F11 + palette_number * 4 + color_index - 1];
-                            uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+                            if(inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                            {
+                                uint RGB_index = RAM[0x3F10 + palette_number * 4 + color_index];
+                                uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
 
-                            _imageData[image_index] = pixelColor;
+                                _imageData[image_index] = pixelColor;
+                            }
                         }
                         else
                         {
@@ -334,7 +337,6 @@ namespace DotNES.Core
             }
             else if (addr == 0x2007)
             {
-                Console.WriteLine(string.Format("PPU read @ {0:X4}", _PPUADDR));
                 byte value = RAM[_PPUADDR & 0x3FFF];
                 int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
                 _PPUADDR = (ushort)((_PPUADDR + increment) & 0xFFFF);
@@ -371,8 +373,6 @@ namespace DotNES.Core
             {
                 // Write val to the location pointed to by PPUADDR
                 RAM[_PPUADDR & 0x3FFF] = val;
-
-                Console.Out.WriteLine(string.Format("Write to PPU @ {0:X4}", _PPUADDR));
 
                 // PPUADDR increments by a configurable amount stored in PPUCTRL
                 int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;

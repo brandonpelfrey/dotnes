@@ -35,6 +35,7 @@ namespace DotNES.Core
             this.ppu = new PPU(this);
             this.apu = new APU();
             this.io = new IO(KeyboardController.DEFAULT_PLAYER_ONE_CONTROLLER, KeyboardController.DEFAULT_PLAYER_TWO_CONTROLLER);
+            //this.io = new IO(new FM2TASController("C:\\roms\\philc2-donkeykong.fm2", 1, this), KeyboardController.DEFAULT_PLAYER_TWO_CONTROLLER);
         }
 
         public void coldBoot()

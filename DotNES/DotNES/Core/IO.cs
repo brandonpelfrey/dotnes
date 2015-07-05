@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -139,7 +140,6 @@ namespace DotNES.Core
 
     public class KeyboardController : Controller
     {
-
         public static Controller DEFAULT_PLAYER_ONE_CONTROLLER = new KeyboardController(Keys.J, Keys.K, Keys.RightShift, Keys.Enter, Keys.W, Keys.S, Keys.A, Keys.D);
         public static Controller DEFAULT_PLAYER_TWO_CONTROLLER = new KeyboardController(Keys.NumPad1, Keys.NumPad2, Keys.NumPad4, Keys.NumPad5, Keys.Up, Keys.Down, Keys.Left, Keys.Right);
 
@@ -201,6 +201,91 @@ namespace DotNES.Core
         public bool getRight()
         {
             return Keyboard.GetState().IsKeyDown(right);
+        }
+    }
+
+    public class FM2TASController : Controller
+    {
+        private NESConsole console;
+        private int playerNumber;
+        public int PlayerNumber {  get { return playerNumber; } }
+
+        // RLDUTSBA
+        private byte[] keysForFrame;
+
+        public FM2TASController(string fm2Path, int playerNumber, NESConsole console)
+        {
+            this.playerNumber = playerNumber;
+            this.console = console;
+
+            string[] lines = File.ReadAllLines(fm2Path).Where(x => x.StartsWith("|")).ToArray();
+            keysForFrame = new byte[lines.Length];
+
+            int frame = 0;
+            foreach(string line in lines)
+            {
+                byte keys = 0;
+                if (line.Substring(3, 12).Contains("R")) keys |= 0x80;
+                if (line.Substring(3, 12).Contains("L")) keys |= 0x40;
+                if (line.Substring(3, 12).Contains("D")) keys |= 0x20;
+                if (line.Substring(3, 12).Contains("U")) keys |= 0x10;
+                if (line.Substring(3, 12).Contains("T")) keys |= 0x08;
+                if (line.Substring(3, 12).Contains("S")) keys |= 0x04;
+                if (line.Substring(3, 12).Contains("B")) keys |= 0x02;
+                if (line.Substring(3, 12).Contains("A")) keys |= 0x01;
+
+                keysForFrame[frame] = keys;
+                frame++;
+            }
+        }
+
+        private byte getPressedKeys()
+        {
+            long frame = console.ppu.FrameCount;
+            if (frame >= 0 && frame < keysForFrame.Length)
+                return keysForFrame[frame];
+            else
+                return 0;
+        }
+
+        public bool getA()
+        {
+            return (getPressedKeys() & 0x01) != 0;
+        }
+
+        public bool getB()
+        {
+            return (getPressedKeys() & 0x02) != 0;
+        }
+
+        public bool getDown()
+        {
+            return (getPressedKeys() & 0x20) != 0;
+        }
+
+        public bool getLeft()
+        {
+            return (getPressedKeys() & 0x40) != 0;
+        }
+
+        public bool getRight()
+        {
+            return (getPressedKeys() & 0x80) != 0;
+        }
+
+        public bool getSelect()
+        {
+            return (getPressedKeys() & 0x04) != 0;
+        }
+
+        public bool getStart()
+        {
+            return (getPressedKeys() & 0x08) != 0;
+        }
+
+        public bool getUp()
+        {
+            return (getPressedKeys() & 0x10) != 0;
         }
     }
 
