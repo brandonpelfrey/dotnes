@@ -5,12 +5,23 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework.Audio;
 using DotNES.Utilities;
+using NAudio.Wave;
 
 namespace DotNES.Core
 {
     public class APU
     {
         Logger log = new Logger("APU");
+
+        public APU() {
+            this.audioBuffer = new AudioBuffer();
+            NESWaveProvider nesWaveProvider = new NESWaveProvider(audioBuffer);
+            waveOut = new WaveOut();
+            waveOut.Init(nesWaveProvider);
+        }
+
+        private AudioBuffer audioBuffer;
+        private WaveOut waveOut;
 
         public void setLoggerEnabled(bool enable)
         {
@@ -137,6 +148,135 @@ namespace DotNES.Core
             }
 
 
+        }
+
+        int sampleRate = 48000;
+        int samplesPerFrame = 800;
+        int timeInSamples = 0;
+        int frame = 0;
+
+        public void writeFrameAudio()
+        {
+            frame++;
+            for (int i=0; i<samplesPerFrame; i++)
+            {
+                float pulseOne = getPulseAudio(PULSE_ONE, timeInSamples);
+                float pulseTwo = getPulseAudio(PULSE_TWO, timeInSamples);
+                //TODO we can't just add these together, should use actual or approximation of actual mixer
+                audioBuffer.write(pulseOne+pulseTwo);
+                timeInSamples++;
+            }
+
+            //Audio fails if we start right away, so waiting to build audio buffer for 10 frames
+            //TODO handle better
+            if (frame == 10)
+            {
+                waveOut.Play();
+            }
+
+            if (timeInSamples > 10000000) {
+                //TODO handle this better, probably will cause a pop every million samples (~200 seconds)
+                timeInSamples = 0;
+            }
+        }
+
+        public float getSineAudio(int timeInSamples) {
+            return (float)(.5 * Math.Sin(2 * Math.PI * timeInSamples * 440 / sampleRate));
+        }
+
+
+        public float getPulseAudio(Pulse pulse, int timeInSamples)
+        {
+            //Frequency is the clock speed of the CPU ~ 1.7MH divided by 16 divied by the timer.
+            //TODO pretty much everything here, only looking at frequency flag right now
+            double frequency = 106250.0 / pulse.TIMER;
+            double normalizedSampleTime = timeInSamples * frequency / sampleRate;
+            return (float)Math.Sin(normalizedSampleTime * 2 * Math.PI) * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
+        }
+    }
+
+    public class AudioBuffer
+    {
+        float[] audioRingBuffer = new float[1<<16];
+        ushort startPointer = 0;
+        ushort nextSamplePointer = 0;
+
+        public void write(float value)
+        {
+            audioRingBuffer[nextSamplePointer] = value;
+            nextSamplePointer++;
+        }
+
+        public int copyToArray(float[] audioBuff, int offset, int numSamples)
+        {
+            if(startPointer < nextSamplePointer)
+            {
+                ushort amountToCopy = (ushort)Math.Min(nextSamplePointer - startPointer, numSamples);
+                copy(audioRingBuffer, startPointer, audioBuff, offset, amountToCopy);
+                startPointer += amountToCopy;
+                return amountToCopy;
+            } else if (nextSamplePointer < startPointer)
+            {
+                int amountAfter = Math.Min(audioRingBuffer.Length - startPointer, numSamples);
+                copy(audioRingBuffer, startPointer, audioBuff, offset, amountAfter);
+                numSamples -= amountAfter;
+
+                int amountBefore = Math.Min(nextSamplePointer, numSamples);
+                copy(audioRingBuffer, 0, audioBuff, offset+amountAfter, amountBefore);
+                int floatsCopied = amountAfter + amountBefore;
+                startPointer += (ushort)floatsCopied;
+                return floatsCopied;
+            } else
+            {
+                return 0;
+            }
+        }
+
+        public void copy(float[] src, int srcOffset, float[] dest, int destOffset, int length)
+        {
+            for(int i=0; i<length; i++)
+            {
+                dest[destOffset + i] = src[srcOffset + i];
+            }
+        }
+    }
+
+    public class NESWaveProvider : IWaveProvider
+    {
+        private WaveFormat waveFormat;
+        private AudioBuffer audioBuffer;
+
+        public NESWaveProvider( AudioBuffer audioBuffer)
+            : this(48000, 1)
+        {
+            this.audioBuffer = audioBuffer;
+        }
+
+        public NESWaveProvider(int sampleRate, int channels)
+        {
+            SetWaveFormat(sampleRate, channels);
+        }
+
+        public void SetWaveFormat(int sampleRate, int channels)
+        {
+            this.waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
+        }
+
+        public int Read(byte[] buffer, int offset, int count)
+        {
+            WaveBuffer waveBuffer = new WaveBuffer(buffer);
+            int samplesRequired = count / 4;
+            int samplesRead = Read(waveBuffer.FloatBuffer, offset / 4, samplesRequired);
+            return samplesRead * 4;
+        }
+
+        public int Read(float[] buffer, int offset, int sampleCount) {
+            return audioBuffer.copyToArray(buffer, offset, sampleCount);
+        }
+
+        public WaveFormat WaveFormat
+        {
+            get { return waveFormat; }
         }
     }
 
