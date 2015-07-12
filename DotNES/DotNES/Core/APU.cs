@@ -162,8 +162,9 @@ namespace DotNES.Core
             {
                 float pulseOne = getPulseAudio(PULSE_ONE, timeInSamples);
                 float pulseTwo = getPulseAudio(PULSE_TWO, timeInSamples);
+                float tri = getTriangleAudio(TRIANGLE, timeInSamples);
                 //TODO we can't just add these together, should use actual or approximation of actual mixer
-                audioBuffer.write(pulseOne+pulseTwo);
+                audioBuffer.write( pulseOne + pulseTwo + tri);
                 timeInSamples++;
             }
 
@@ -179,19 +180,38 @@ namespace DotNES.Core
                 timeInSamples = 0;
             }
         }
-
-        public float getSineAudio(int timeInSamples) {
-            return (float)(.5 * Math.Sin(2 * Math.PI * timeInSamples * 440 / sampleRate));
-        }
-
-
+        
         public float getPulseAudio(Pulse pulse, int timeInSamples)
         {
             //Frequency is the clock speed of the CPU ~ 1.7MH divided by 16 divied by the timer.
             //TODO pretty much everything here, only looking at frequency flag right now
             double frequency = 106250.0 / pulse.TIMER;
             double normalizedSampleTime = timeInSamples * frequency / sampleRate;
-            return (float)Math.Sin(normalizedSampleTime * 2 * Math.PI) * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
+            
+            float sinResponse = (float)Math.Sin(normalizedSampleTime * 2 * Math.PI);
+            return (sinResponse > 0f ? 1f : -1f) * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
+        }
+
+        public float getTriangleAudio(Triangle triangle, int timeInSamples)
+        {
+            // Triangle plays one octave lower than the given frequency
+            double frequency = 106250.0 / triangle.TIMER / 2;
+            double normalizedSampleTime = timeInSamples * frequency / sampleRate;
+            
+            // Given the frequency, determine where we are inside a single triangle waveform as a point in [0,1]
+            //  1      /\
+            //        /  \
+            //  0 ---/----\----...
+            //      /      \  /
+            // -1  /        \/
+            //    0    .5    1   ..
+            float normalized = ((timeInSamples * (int)frequency) % sampleRate) / (float)sampleRate;
+
+            // Map [0,1) to the triangle in range [-1,1]
+            if (normalized <= 0.5)
+                return -1f + 4f * normalized;
+            else
+                return 3f - 4f * normalized;
         }
     }
 
