@@ -144,6 +144,10 @@ namespace DotNES.Core
                 bool flipHorizontal = (attributes & 0x40) != 0;
                 bool flipVertical = (attributes & 0x80) != 0;
 
+                // Sprites are never drawn on if their y-coord is 0
+                if (sprite_y == 0)
+                    continue;
+
                 // TODO: The following code is only valid for 8x8 sprites
 
                 for (int tj = 0; tj < 8; ++tj)
