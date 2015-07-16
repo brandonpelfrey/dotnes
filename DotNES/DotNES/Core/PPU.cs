@@ -66,77 +66,104 @@ namespace DotNES.Core
 
         private void drawBackground()
         {
-            // NOTE HACKS TODO BBQ The general method here cannot handle scrolling whatsoever.
+            int ppu_scroll_x = (_PPUSCROLL >> 8) & 0xFF;
+            int ppu_scroll_y = _PPUSCROLL & 0xFF;
+
+            // The two LSBs of PPUCTRL hold the MSB of the ppu scroll offsets
+            ppu_scroll_x += ((_PPUCTRL >> 0) & 1) * 256;
+            ppu_scroll_y += ((_PPUCTRL >> 1) & 1) * 240;
 
             // There are two background pattern table possibilities, use the one selected by PPUCTRL.
-            ushort bg_pattern_base =  (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
-            ushort attribute_table_base = 0x23C0; // Attribute Table base for the first Name Table
+            ushort bg_pattern_base = (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
 
-            // Walk over each tile in the name table and draw to the output image.
-            for (int nti = 0; nti < 32; ++nti)
-                for (int ntj = 0; ntj < 30; ++ntj)
+            for (int px = 0; px < 256; ++px)
+            {
+                for (int py = 0; py < 240; ++py)
                 {
-                    int nt_index = ntj * 32 + nti;
+                    // 0 | 1
+                    // -----
+                    // 2 | 3
+                    int which_nametable = 0;
 
-                    // Look up in the name table what pattern table entry has this sprite's pattern
-                    // (Each pattern takes 16 bytes of data to express)
-                    ushort pt_index = (ushort)(RAM[0x2000 + nt_index] * 16);
+                    // nametable_x/y are the coordinates relative to the top-left of whichever nametable this pixel is inside
+                    int nametable_x = (ppu_scroll_x + px) % 512;
+                    if (nametable_x >= 256)
+                    {
+                        which_nametable += 1;
+                        nametable_x -= 256;
+                    }
 
-                    int attributeTableIndex = (ntj / 4) * 8 + (nti / 4);
-                    byte attributeTableEntry = RAM[attribute_table_base + attributeTableIndex];
+                    int nametable_y = (ppu_scroll_y + py) % 480;
+                    if (nametable_y >= 240)
+                    {
+                        which_nametable += 2;
+                        nametable_y -= 240;
+                    }
+
+                    int nametable_tile_x = nametable_x / 8;
+                    int nametable_tile_y = nametable_y / 8;
+
+                    int attribute_x = nametable_tile_x / 4;
+                    int attribute_y = nametable_tile_y / 4;
+
+                    // Compute palette number
+
+                    // The attribute table start depends on which nametable we're in.
+                    // (Start of Nametables in memory + each nametable is 1K + 0x3C0 bytes until the start of the AT)
+                    int nametable_start = 0x2000 + 0x400 * which_nametable;
+
+                    int attribute_table_base = nametable_start + 0x3C0;
+                    int attributeTableIndex = attribute_y * 8 + attribute_x;
+                    byte attributeTableEntry = readRAM((ushort)(attribute_table_base + attributeTableIndex));
 
                     // which pallete to derive the color from
                     int which_palette = 0;
-                    which_palette |= nti % 4 >= 2 ? 2 : 0;
-                    which_palette |= ntj % 4 >= 2 ? 4 : 0;
+                    which_palette |= nametable_tile_x % 4 >= 2 ? 2 : 0;
+                    which_palette |= nametable_tile_y % 4 >= 2 ? 4 : 0;
 
                     // Use the previous value to select the two-bit palette number
                     byte palette_num = (byte)((attributeTableEntry >> which_palette) & 3);
 
-                    // For each pixel in the pattern
-                    for (int j = 0; j < 8; ++j)
-                    {
-                        byte lowBits = getPatternTable((ushort)(bg_pattern_base + pt_index + j));
-                        byte highBits = getPatternTable((ushort)(bg_pattern_base + pt_index + j + 8));
+                    // Compute color index
 
-                        for (int i = 0; i < 8; ++i)
-                        {
-                            // Which color in the chosen palette
-                            byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
-                            byte highBit = (byte)((highBits >> (7 - i)) & 1);
-                            byte color_index = (byte)(lowBit + highBit * 2);
+                    int nt_index = nametable_tile_y * 32 + nametable_tile_x;
+                    ushort pt_index = readRAM((ushort)(nametable_start + nt_index)); // TODO : Handle nametable mirroring properly
 
-                            int image_index = (ntj * 8 + j) * 256 + (nti * 8 + i);
-                            if (color_index > 0)
-                            {
-                                byte RGB_index = RAM[0x3F00 + 4*palette_num + color_index];
-                                uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+                    int tile_x = nametable_x % 8;
+                    int tile_y = nametable_y % 8;
 
-                                _imageData[image_index] = pixelColor;
-                            }
-                            else
-                            {
-                                uint universalBackgroundColorIndex = RAM[0x3F00];
-                                uint pixelColor = RGBA_PALETTE[universalBackgroundColorIndex];
-                                _imageData[image_index] = pixelColor;
-                            }
-                        }
-                    }
+                    byte lowBits = getPatternTable((ushort)(bg_pattern_base + pt_index * 16 + tile_y));
+                    byte highBits = getPatternTable((ushort)(bg_pattern_base + pt_index * 16 + tile_y + 8));
+
+                    byte lowBit = (byte)((lowBits >> (7 - tile_x)) & 1);
+                    byte highBit = (byte)((highBits >> (7 - tile_x)) & 1);
+                    byte color_index = (byte)(lowBit + highBit * 2);
+
+                    // If it's the background color, look at palette 0 (Universally-shared BG color)
+                    if (color_index == 0) palette_num = 0;
+
+                    byte RGB_index = readRAM((ushort)(0x3F00 + 4 * palette_num + color_index));
+                    uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+                    _imageData[256 * py + px] = pixelColor;
                 }
+            }
         }
-
+        
         private void drawSprites()
         {
-            uint universalBackgroundColor = RGBA_PALETTE[RAM[0x3F00]];
+            uint universalBackgroundColor = RGBA_PALETTE[readRAM(0x3F00)];
 
             // This is ignored for 8x16 sprites -- they specify the page in their attributes
             ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
 
-            for (int oam_index = 0; oam_index < 256; ++oam_index)
+            if ((_PPUCTRL & 0x20) != 0)
+                Console.WriteLine("8x16 sprites unhandled!");
+
+            for (int oam_index = 0; oam_index < 64; ++oam_index)
             {
                 byte sprite_y = OAM[oam_index * 4 + 0];
                 byte pt_index = OAM[oam_index * 4 + 1];
-                byte attributes = OAM[oam_index * 4 + 2];
+                byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3);
                 byte sprite_x = OAM[oam_index * 4 + 3];
 
                 byte palette_number = (byte)(attributes & 3);
@@ -145,7 +172,7 @@ namespace DotNES.Core
                 bool flipVertical = (attributes & 0x80) != 0;
 
                 // Sprites are never drawn on if their y-coord is 0
-                if (sprite_y == 0)
+                if (sprite_y == 0 || sprite_y >= 240)
                     continue;
 
                 // TODO: The following code is only valid for 8x8 sprites
@@ -172,14 +199,20 @@ namespace DotNES.Core
                         // Is this sprite's pixel on the screen?
                         if (px >= 256 || py >= 240) continue;
 
+                        /*
+                        // Draw sprite bounding boxes TODO : Revisit this as an option, maybe even with OAM numbers?
+                        if (ti == 0 || ti == 7 || tj == 0 || tj == 7)
+                            color_index = 1;
+                            */
+
                         int image_index = 256 * py + px;
 
                         if (color_index > 0)
                         {
                             // TODO : Respect BG/Sprite precedence
-                            if(inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                            if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
                             {
-                                uint RGB_index = RAM[0x3F10 + palette_number * 4 + color_index];
+                                uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
                                 uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
 
                                 _imageData[image_index] = pixelColor;
@@ -188,13 +221,7 @@ namespace DotNES.Core
                         else
                         {
                             // Do sprites draw a background color or simply defer to BG?
-                            /*
-                            uint universalBackgroundColorIndex = RAM[0x3F00];
-                            uint pixelColor = RGBA_PALETTE[universalBackgroundColorIndex];
-                            _imageData[image_index] = pixelColor;
-                            */
                         }
-
                     }
                 }
 
@@ -292,6 +319,7 @@ namespace DotNES.Core
 
                 scanline = -1;
                 _frameCount++;
+                oddFrame = _frameCount % 2 == 1;
             }
         }
 
@@ -322,11 +350,46 @@ namespace DotNES.Core
             {
                 return console.mapper.readCHR(address);
             }
-            return RAM[address];
+            return readRAM(address);
         }
+
+        private byte readRAM(ushort addr)
+        {
+            // Handle nametable mirroring
+            if (addr >= 0x2000 && addr <= 0x2FFF)
+            {
+                if (console.cartridge.mapperControlsNametableMirroring)
+                {
+                    // TODO : Handle MMC1/3 and others that control nametable mirroring 
+                }
+                else
+                {
+                    if (console.cartridge.nametableIsVerticalMirrored)
+                    {
+                        return addr >= 0x2800 ? RAM[addr - 0x800] : RAM[addr];
+                    }
+                    else
+                    {
+                        return RAM[addr & 0xFBFF];
+                    }
+                }
+            }
+
+            return RAM[addr];
+        }
+
+        private void writeRAM(ushort addr, byte val)
+        {
+            RAM[addr] = val;
+        }
+
+        byte PPUDATA_ReadBuffer = 0;
 
         public byte read(ushort addr)
         {
+            // Handle mirroring
+            addr = (ushort)(0x2000 + (addr & 0x0007));
+
             if (addr == 0x2001)
             {
                 return _PPUMASK;
@@ -341,10 +404,24 @@ namespace DotNES.Core
             }
             else if (addr == 0x2007)
             {
-                byte value = RAM[_PPUADDR & 0x3FFF];
+                ushort readAddress = (ushort)(_PPUADDR & 0x3FFF);
+
+                byte returnValue;
+                // Reads below 0x3F00 actually return the contents of an internal read buffer.
+                if(readAddress < 0x3F00)
+                {
+                    returnValue = PPUDATA_ReadBuffer;
+                    PPUDATA_ReadBuffer = readRAM((ushort)(_PPUADDR & 0x3FFF));
+                }
+                else
+                {
+                    returnValue = readRAM((ushort)(_PPUADDR & 0x3FFF)); 
+                }
+                
                 int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
                 _PPUADDR = (ushort)((_PPUADDR + increment) & 0xFFFF);
-                return value;
+                
+                return returnValue;
             }
             Console.WriteLine(string.Format("Unimplemented read to PPU @ {0:X}", addr));
             return 0;
@@ -352,42 +429,48 @@ namespace DotNES.Core
 
         public void write(ushort addr, byte val)
         {
-            if (addr == 0x2000)
+            if (addr >= 0x2000 && addr <= 0x2007)
             {
-                _PPUCTRL = val;
-            }
-            else if (addr == 0x2001)
-            {
-                _PPUMASK = val;
-            }
-            else if (addr == 0x2003)
-            {
-                _OAMADDR = val;
-            }
-            else if (addr == 0x2005)
-            {
-                _PPUSCROLL = (ushort)((_PPUSCROLL << 8) | (val & 0xFF));
-            }
-            else if (addr == 0x2006)
-            {
-                // The user can set a VRAM address to write to by writing to PPUADDR twice in succession.
-                _PPUADDR = (ushort)((_PPUADDR << 8) | (val & 0xFF));
-            }
-            else if (addr == 0x2007)
-            {
-                // Write val to the location pointed to by PPUADDR
-                RAM[_PPUADDR & 0x3FFF] = val;
+                // Handle mirroring
+                addr = (ushort)(0x2000 + (addr & 0x0007));
 
-                // PPUADDR increments by a configurable amount stored in PPUCTRL
-                int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
-                _PPUADDR = (ushort)((_PPUADDR + increment) & 0x3FFF);
+                if (addr == 0x2000)
+                {
+                    _PPUCTRL = val;
+                }
+                else if (addr == 0x2001)
+                {
+                    _PPUMASK = val;
+                }
+                else if (addr == 0x2003)
+                {
+                    _OAMADDR = val;
+                }
+                else if (addr == 0x2005)
+                {
+                    _PPUSCROLL = (ushort)((_PPUSCROLL << 8) | val);
+                }
+                else if (addr == 0x2006)
+                {
+                    // The user can set a VRAM address to write to by writing to PPUADDR twice in succession.
+                    _PPUADDR = (ushort)((_PPUADDR << 8) | (val & 0xFF));
+                }
+                else if (addr == 0x2007)
+                {
+                    // Write val to the location pointed to by PPUADDR
+                    writeRAM((ushort)(_PPUADDR & 0x3FFF), val);
+
+                    // PPUADDR increments by a configurable amount stored in PPUCTRL
+                    int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
+                    _PPUADDR = (ushort)((_PPUADDR + increment) & 0x3FFF);
+                }
             }
             else if (addr == 0x4014)
             {
                 // Writing XX to 0x4014 causes CPU RAM 0xXX00-0xXXFF to be written to OAM
                 for (int offset = 0; offset <= 0xFF; ++offset)
                 {
-                    ushort read_address = (ushort)((val << 8) + offset);
+                    ushort read_address = (ushort)((val << 8) + ((offset + _OAMADDR) & 0xFF));
                     OAM[offset] = console.memory.read8(read_address);
                 }
             }

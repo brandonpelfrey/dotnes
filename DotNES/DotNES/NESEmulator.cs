@@ -114,8 +114,8 @@ namespace DotNES
                 if (startingFrame != system.ppu.FrameCount)
                     break;
             }
-            if(Window != null && Window.Title != null)
-            Window.Title = string.Format("DotNES : Frame {0}", system.ppu.FrameCount);
+            if (Window != null && Window.Title != null)
+                Window.Title = string.Format("DotNES : Frame {0}", system.ppu.FrameCount);
         }
     }
 }

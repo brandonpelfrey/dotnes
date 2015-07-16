@@ -140,14 +140,17 @@ namespace DotNES
         [OpCode(opcode = 0x6C, name = "JMP", bytes = 3)]
         private int JMP_Indirect()
         {
-            _PC = console.memory.read16(argOne16());
+            ushort indirectAddress = argOne16();
+
+            // JMP Indirect has a bug where the indirect address wraps the page boundary
+            _PC = console.memory.read16(indirectAddress, true);
             return 5;
         }
 
         [OpCode(opcode = 0x20, name = "JSR", bytes = 3)]
         private int JSR_Absolute()
         {
-            pushStack16((ushort)(_PC + 3));
+            pushStack16((ushort)(_PC + 2));
             _PC = argOne16();
             return 6;
         }
@@ -155,23 +158,23 @@ namespace DotNES
         [OpCode(opcode = 0x60, name = "RTS", bytes = 1)]
         private int RTS_Implied()
         {
-            _PC = popStack16();
+            _PC = (ushort)(popStack16()+1);
             return 6;
         }
 
         [OpCode(opcode = 0x40, name = "RTI", bytes = 1)]
         private int RTI_Implied()
         {
-            _PC = popStack16();
             _P = popStack8();
+            _PC = popStack16();
             return 6;
         }
 
         [OpCode(opcode = 0x00, name = "BRK", bytes = 1)]
         private int BRK_Implied()
         {
-            pushStack8(_P);
             pushStack16(_PC);
+            pushStack8(_P);
 
             _PC = console.memory.read16(0xFFFE);
             return 7;
@@ -192,13 +195,14 @@ namespace DotNES
         [OpCode(opcode = 0x69, name = "ADC", bytes = 2)]
         private int ADC_Immediate()
         {
+            byte A = _A;
             byte arg = argOne();
             byte carry = getFlag(StatusFlag.Carry);
             int result = _A + arg + carry;
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -210,13 +214,14 @@ namespace DotNES
         [OpCode(opcode = 0x65, name = "ADC", bytes = 2)]
         private int ADC_ZeroPage()
         {
+            byte A = _A;
             byte arg = console.memory.read8(argOne());
             byte carry = getFlag(StatusFlag.Carry);
             int result = _A + arg + carry;
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -228,6 +233,7 @@ namespace DotNES
         [OpCode(opcode = 0x75, name = "ADC", bytes = 2)]
         private int ADC_ZeroPageX()
         {
+            byte A = _A;
             ushort address = (ushort)((argOne() + _X) & 0xFF);
             byte arg = console.memory.read8(address);
             byte carry = getFlag(StatusFlag.Carry);
@@ -235,7 +241,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -247,13 +253,14 @@ namespace DotNES
         [OpCode(opcode = 0x6D, name = "ADC", bytes = 3)]
         private int ADC_Absolute()
         {
+            byte A = _A;
             byte arg = console.memory.read8(argOne16());
             byte carry = getFlag(StatusFlag.Carry);
             int result = _A + arg + carry;
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -271,11 +278,12 @@ namespace DotNES
         [OpCode(opcode = 0x79, name = "ADC", bytes = 3)]
         private int ADC_AbsoluteY()
         {
-            return ADC_AbsoluteWithRegister(_X);
+            return ADC_AbsoluteWithRegister(_Y);
         }
 
         private int ADC_AbsoluteWithRegister(ushort registerValue)
         {
+            byte A = _A;
             ushort address = (ushort)(argOne16() + registerValue);
             byte arg = console.memory.read8(address);
             byte carry = getFlag(StatusFlag.Carry);
@@ -283,7 +291,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -303,6 +311,7 @@ namespace DotNES
         [OpCode(opcode = 0x61, name = "ADC", bytes = 2)]
         private int ADC_IndirectX()
         {
+            byte A = _A;
             ushort address = (ushort)((argOne() + _X) & 0xFF);
             byte arg = console.memory.read8(console.memory.read16(address));
             byte carry = getFlag(StatusFlag.Carry);
@@ -310,7 +319,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -322,7 +331,8 @@ namespace DotNES
         [OpCode(opcode = 0x71, name = "ADC", bytes = 2)]
         private int ADC_IndirectY()
         {
-            ushort addressWithoutY = console.memory.read16(argOne());
+            byte A = _A;
+            ushort addressWithoutY = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(addressWithoutY + _Y);
 
             byte arg = console.memory.read8(addressWithY);
@@ -331,7 +341,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -360,14 +370,14 @@ namespace DotNES
         [OpCode(opcode = 0xE9, name = "SBC", bytes = 2)]
         private int SBC_Immediate()
         {
-            byte arg = argOne();
-            arg ^= 0xFF;
+            byte A = _A;
+            byte arg = (byte)(argOne() ^ 0xFF);
             byte carry = getFlag(StatusFlag.Carry);
             int result = _A + arg + carry;
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -379,6 +389,7 @@ namespace DotNES
         [OpCode(opcode = 0xE5, name = "SBC", bytes = 2)]
         private int SBC_ZeroPage()
         {
+            byte A = _A;
             byte arg = console.memory.read8(argOne());
             arg ^= 0xFF;
             byte carry = getFlag(StatusFlag.Carry);
@@ -386,7 +397,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -398,6 +409,7 @@ namespace DotNES
         [OpCode(opcode = 0xF5, name = "SBC", bytes = 2)]
         private int SBC_ZeroPageX()
         {
+            byte A = _A;
             ushort address = (ushort)((argOne() + _X) & 0xFF);
             byte arg = console.memory.read8(address);
             arg ^= 0xFF;
@@ -406,7 +418,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -418,6 +430,7 @@ namespace DotNES
         [OpCode(opcode = 0xED, name = "SBC", bytes = 3)]
         private int SBC_Absolute()
         {
+            byte A = _A;
             byte arg = console.memory.read8(argOne16());
             arg ^= 0xFF;
             byte carry = getFlag(StatusFlag.Carry);
@@ -425,7 +438,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -443,11 +456,12 @@ namespace DotNES
         [OpCode(opcode = 0xF9, name = "SBC", bytes = 3)]
         private int SBC_AbsoluteY()
         {
-            return SBC_AbsoluteWithRegister(_X);
+            return SBC_AbsoluteWithRegister(_Y);
         }
 
-        private int SBC_AbsoluteWithRegister(ushort registerValue)
+        private int SBC_AbsoluteWithRegister(byte registerValue)
         {
+            byte A = _A;
             ushort address = (ushort)(argOne16() + registerValue);
             byte arg = console.memory.read8(address);
             arg ^= 0xFF;
@@ -456,7 +470,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -476,6 +490,7 @@ namespace DotNES
         [OpCode(opcode = 0xE1, name = "SBC", bytes = 2)]
         private int SBC_IndirectX()
         {
+            byte A = _A;
             ushort address = (ushort)((argOne() + _X) & 0xFF);
             byte arg = console.memory.read8(console.memory.read16(address));
             arg ^= 0xFF;
@@ -484,7 +499,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -496,7 +511,8 @@ namespace DotNES
         [OpCode(opcode = 0xF1, name = "SBC", bytes = 2)]
         private int SBC_IndirectY()
         {
-            ushort addressWithoutY = console.memory.read16(argOne());
+            byte A = _A;
+            ushort addressWithoutY = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(addressWithoutY + _Y);
 
             byte arg = console.memory.read8(addressWithY);
@@ -506,7 +522,7 @@ namespace DotNES
 
             _A = (byte)(result & 0xFF);
 
-            setOverflowForOperands(_A, arg, result);
+            setOverflowForOperands(A, arg, result);
             setNegativeForOperand(_A);
             setCarryForResult(result);
             setZeroForOperand(_A);
@@ -628,7 +644,7 @@ namespace DotNES
         [OpCode(opcode = 0x31, name = "AND", bytes = 2)]
         private int AND_IndirectY()
         {
-            ushort addressWithoutY = console.memory.read16(argOne());
+            ushort addressWithoutY = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(addressWithoutY + _Y);
             byte arg = console.memory.read8(addressWithY);
             _A = (byte)(_A & arg);
@@ -718,7 +734,7 @@ namespace DotNES
         [OpCode(opcode = 0x1E, name = "ASL", bytes = 3)]
         private int ASL_AbsoluteX()
         {
-            ushort address = (ushort)((argOne16() + _X) & 0xFF);
+            ushort address = (ushort)((argOne16() + _X) );
             byte val = console.memory.read8(address);
             byte newCarry = (byte)((val >> 7) & 1);
             val = (byte)(val << 1);
@@ -874,7 +890,7 @@ namespace DotNES
         private int CMP_AbsoluteY()
         {
             ushort address = argOne16();
-            ushort addressWithY = (ushort)(argOne16() + _X);
+            ushort addressWithY = (ushort)(argOne16() + _Y);
             compareValues(_A, console.memory.read8(addressWithY));
             _PC += 3;
             if (samePage(address, addressWithY))
@@ -900,7 +916,7 @@ namespace DotNES
         [OpCode(opcode = 0xD1, name = "CMP", bytes = 2)]
         private int CMP_IndirectY()
         {
-            ushort address = console.memory.read16(argOne());
+            ushort address = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(address + _Y);
             compareValues(_A, console.memory.read8(addressWithY));
             _PC += 2;
@@ -1206,7 +1222,7 @@ namespace DotNES
         private int STA_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
-            ushort indirectAddress = console.memory.read16(address);
+            ushort indirectAddress = console.memory.read16(address, true);
             console.memory.write8(indirectAddress, _A);
             _PC += 2;
             return 6;
@@ -1216,7 +1232,7 @@ namespace DotNES
         private int STA_IndirectY()
         {
             ushort address = argOne();
-            ushort indirectAddress = (ushort)(console.memory.read16(address) + _Y);
+            ushort indirectAddress = (ushort)(console.memory.read16(address, true) + _Y);
             console.memory.write8(indirectAddress, _A);
             _PC += 2;
             return 6;
@@ -1364,7 +1380,7 @@ namespace DotNES
         private int LDA_IndirectX()
         {
             ushort address = (ushort)((argOne() + _X) & 0xFF);
-            _A = console.memory.read8(console.memory.read16(address));
+            _A = console.memory.read8(console.memory.read16(address, true));
             setZeroForOperand(_A);
             setNegativeForOperand(_A);
             _PC += 2;
@@ -1374,8 +1390,9 @@ namespace DotNES
         [OpCode(opcode = 0xB1, name = "LDA", bytes = 2)]
         private int LDA_IndirectY()
         {
-            ushort addressWithoutY = console.memory.read16(argOne());
+            ushort addressWithoutY = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(addressWithoutY + _Y);
+            
             _A = console.memory.read8(addressWithY);
 
             setZeroForOperand(_A);
@@ -1571,8 +1588,6 @@ namespace DotNES
         private int TXS()
         {
             _S = _X;
-            setZeroForOperand(_S);
-            setNegativeForOperand(_S);
             _PC += 1;
             return 2;
         }
@@ -1867,7 +1882,7 @@ namespace DotNES
         [OpCode(opcode = 0x51, name = "EOR", bytes = 2)]
         private int EOR_IndirectY()
         {
-            ushort address = console.memory.read16(argOne());
+            ushort address = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(address + _Y);
 
             byte arg = console.memory.read8(addressWithY);
@@ -1889,9 +1904,9 @@ namespace DotNES
 
         private int EOR_AbsoluteWithRegister(byte registerValue)
         {
-            ushort address = console.memory.read16(argOne16());
-            ushort addressWithY = (ushort)(address + registerValue);
-            byte arg = console.memory.read8(addressWithY);
+            ushort address = argOne16();
+            ushort addressWithReg = (ushort)(argOne16() + registerValue);
+            byte arg = console.memory.read8(addressWithReg);
 
             _A = (byte)(_A ^ arg);
 
@@ -1901,7 +1916,7 @@ namespace DotNES
             _PC += 3;
 
 
-            if (samePage(address, addressWithY))
+            if (samePage(address, addressWithReg))
             {
                 return 4;
             }
@@ -1995,7 +2010,7 @@ namespace DotNES
         [OpCode(opcode = 0x11, name = "ORA", bytes = 2)]
         private int ORA_IndirectY()
         {
-            ushort address = console.memory.read16(argOne());
+            ushort address = console.memory.read16(argOne(), true);
             ushort addressWithY = (ushort)(address + _Y);
 
             byte arg = console.memory.read8(addressWithY);
@@ -2017,7 +2032,7 @@ namespace DotNES
 
         private int ORA_AbsoluteWithRegister(byte registerValue)
         {
-            ushort address = console.memory.read16(argOne16());
+            ushort address = argOne16();
             ushort addressWithY = (ushort)(address + registerValue);
             byte arg = console.memory.read8(addressWithY);
 
@@ -2239,14 +2254,14 @@ namespace DotNES
 
         private void pushStack16(ushort val)
         {
-            console.memory.write16(stackAddressOf((byte)(_S - 1)), (ushort)(val - 1));
+            console.memory.write16(stackAddressOf((byte)(_S - 1)), (ushort)(val ));
             _S -= 2;
         }
 
         private ushort popStack16()
         {
             _S += 2;
-            return (ushort)(console.memory.read16(stackAddressOf((byte)(_S - 1))) + 1);
+            return (ushort)(console.memory.read16(stackAddressOf((byte)(_S - 1)))  );
         }
 
         private void pushStack8(byte val)
@@ -2274,7 +2289,8 @@ namespace DotNES
         private void setOverflowForOperands(byte val1, byte val2, int result)
         {
             // If the sign of the result differs from both inputs, overflow! (Work it out in a table)
-            bool overflowCheck = (((result ^ val1) & (result ^ val2)) & 0x80) == 1;
+            //bool overflowCheck = (((val2 ^ val1) & (result ^ val2)) & 0x80) == 1;
+            bool overflowCheck = (val1 & 0x80) == (val2 & 0x80) && (val1 & 0x80) != (result & 0x80);
             setFlag(StatusFlag.Overflow, (byte)(overflowCheck ? 1 : 0));
         }
 
@@ -2343,8 +2359,9 @@ namespace DotNES
         private void jumpToNMIVector()
         {
             // Jump to location pointed at by the reset vector
-            pushStack8(_P);
             pushStack16(_PC);
+            pushStack8(_P);
+            
 
             _PC = console.memory.read16(0xFFFA);
             log.info("Jumped to NMI Vector @ {0:X}", _PC);

@@ -22,6 +22,9 @@ namespace DotNES.Core
         public bool BatteryBackedRAM { get; private set; }
         public bool isNTSC { get; private set; }
 
+        public bool nametableIsVerticalMirrored { get; private set; }
+        public bool mapperControlsNametableMirroring { get; private set; }
+
         #region iNES ROM Loader
 
         // iNES File Signature : ['N', 'E', 'S', EOF] in little-endian
@@ -54,6 +57,8 @@ namespace DotNES.Core
             int flag7 = header[7];
             int flag9 = header[9];
             int flag10 = header[10];
+
+            nametableIsVerticalMirrored = (flag6 & 1) == 1;
 
             bool usesTrainer = (flag6 & 4) != 0;
             if (usesTrainer)
@@ -88,6 +93,7 @@ namespace DotNES.Core
 
             log.info("ROM Details --");
             log.info(" * Mapper #{0}", MapperNumber);
+            log.info(" * Nametable is {0} mirrored.", nametableIsVerticalMirrored ? "vertically" : "horizontally");
             log.info(" * {0} Output", isNTSC ? "NTSC" : "PAL");
             if (BatteryBackedRAM) log.info(" * Battery-backed RAM ('Game Saves' supported)");
 
@@ -112,6 +118,7 @@ namespace DotNES.Core
             switch (MapperNumber)
             {
                 case 0:
+                    mapperControlsNametableMirroring = false;
                     return new Mapper000(this);
                 default:
                     break;

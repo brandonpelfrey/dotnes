@@ -90,9 +90,20 @@ namespace DotNES.Core
         /// </summary>
         /// <param name="addr"></param>
         /// <returns></returns>
-        public ushort read16(ushort addr)
+        public ushort read16(ushort addr, bool pageWrap = false)
         {
-            return (ushort)((read8((ushort)(addr + 1)) << 8) | read8(addr));
+            if (pageWrap)
+            {
+                ushort lowByte = addr;
+                ushort highByte = (ushort)((addr&0xFF) == 0xFF ? addr & 0xFF00 : addr + 1);
+
+                return (ushort)( (read8(highByte) << 8) | read8(lowByte));
+            }
+            else
+            {
+                return (ushort)((read8((ushort)(addr + 1)) << 8) | read8(addr));
+            }
+
         }
     }
 }
