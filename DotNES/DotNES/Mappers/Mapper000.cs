@@ -27,7 +27,7 @@ namespace DotNES.Mappers
             if(address < 0x8000)
             {
                 Console.Error.WriteLine(string.Format("Invalid read to NROM Mapper @ {0:X4}", address));
-                throw new IndexOutOfRangeException();
+                return 0;
             }
 
             int base_address;

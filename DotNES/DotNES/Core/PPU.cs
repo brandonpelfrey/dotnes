@@ -148,86 +148,129 @@ namespace DotNES.Core
                 }
             }
         }
-        
+
         private void drawSprites()
         {
             uint universalBackgroundColor = RGBA_PALETTE[readRAM(0x3F00)];
 
-            // This is ignored for 8x16 sprites -- they specify the page in their attributes
-            ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
+            byte[] oam_temp = new byte[8];
 
-            if ((_PPUCTRL & 0x20) != 0)
-                Console.WriteLine("8x16 sprites unhandled!");
+            // Are we drawing 8x16 sprites?
+            bool mode816 = (_PPUCTRL & 0x20) != 0;
 
-            for (int oam_index = 0; oam_index < 64; ++oam_index)
+            // For each pixel
+            for (int py = 1; py < 240; ++py)
             {
-                byte sprite_y = OAM[oam_index * 4 + 0];
-                byte pt_index = OAM[oam_index * 4 + 1];
-                byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3);
-                byte sprite_x = OAM[oam_index * 4 + 3];
-
-                byte palette_number = (byte)(attributes & 3);
-                bool inFrontOfBG = (attributes & 0x20) == 0;
-                bool flipHorizontal = (attributes & 0x40) != 0;
-                bool flipVertical = (attributes & 0x80) != 0;
-
-                // Sprites are never drawn on if their y-coord is 0
-                if (sprite_y == 0 || sprite_y >= 240)
-                    continue;
-
-                // TODO: The following code is only valid for 8x8 sprites
-
-                for (int tj = 0; tj < 8; ++tj)
+                // Find sprites for this scanline
+                int sprite_count = 0;
+                for (byte oam_index = 0; oam_index < 64 && sprite_count < 8; ++oam_index)
                 {
-                    byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + tj));
-                    byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + tj + 8));
+                    byte sprite_y = OAM[oam_index * 4 + 0];
+                    int max_y_offset = mode816 ? 16 : 8;
 
-                    for (int ti = 0; ti < 8; ++ti)
+                    if (py >= sprite_y && (py < sprite_y + max_y_offset))
                     {
-                        // Transform from sprite coordinates to flip-corrected coordinates...
-                        int i = flipHorizontal ? 7 - ti : ti;
-                        int j = flipVertical ? 7 - tj : tj;
+                        oam_temp[sprite_count] = oam_index;
+                        sprite_count++;
+                    }
+                }
+                
+                for (int px = 0; px < 256; ++px)
+                {
+                    int image_index = py * 256 + px;
 
-                        byte lowBit = (byte)((lowBits >> (7 - ti)) & 1);
-                        byte highBit = (byte)((highBits >> (7 - ti)) & 1);
-                        byte color_index = (byte)(lowBit + highBit * 2);
+                    // Check each sprite 
+                    for (int spr_index = 0; spr_index < sprite_count; ++spr_index)
+                    {
+                        int oam_index = oam_temp[spr_index];
 
-                        // ... and then to screen space coordinates
-                        int px = sprite_x + i;
-                        int py = sprite_y + j;
+                        byte sprite_y = OAM[oam_index * 4 + 0];
+                        byte pt_index = OAM[oam_index * 4 + 1];
+                        byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3); // There are several bits that are "unimplemented" (always return zero during read)
+                        byte sprite_x = OAM[oam_index * 4 + 3];
 
-                        // Is this sprite's pixel on the screen?
-                        if (px >= 256 || py >= 240) continue;
+                        byte palette_number = (byte)(attributes & 3);
+                        bool inFrontOfBG = (attributes & 0x20) == 0;
+                        bool flipHorizontal = (attributes & 0x40) != 0;
+                        bool flipVertical = (attributes & 0x80) != 0;
 
-                        /*
-                        // Draw sprite bounding boxes TODO : Revisit this as an option, maybe even with OAM numbers?
-                        if (ti == 0 || ti == 7 || tj == 0 || tj == 7)
-                            color_index = 1;
-                            */
+                        // Sprites are never drawn on if their y-coord is 0
+                        if (sprite_y == 0 || sprite_y >= 240)
+                            continue;
 
-                        int image_index = 256 * py + px;
+                        if (px - sprite_x >= 8 || px < sprite_x)
+                            continue;
 
-                        if (color_index > 0)
+                        if (mode816 && true)
                         {
-                            // TODO : Respect BG/Sprite precedence
-                            if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
-                            {
-                                uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
-                                uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+                            int which_tile = 0;
+                            if(py - sprite_y >= 8)
+                                which_tile = 1;
+                            if (flipVertical)
+                                which_tile = 1 - which_tile;
 
-                                _imageData[image_index] = pixelColor;
+                            int ti = px - sprite_x;
+                            int tj = (py - sprite_y) % 8; // Tiles are only 8x8, so handle when we're looking at the second tile
+
+                            int i = flipHorizontal ? 7 - ti : ti;
+                            int j = flipVertical ? 7 - tj : tj;
+
+                            ushort sprite_pattern_table_base = (ushort)((pt_index & 1) == 0 ? 0x0000 : 0x1000);
+                            pt_index = (byte)((pt_index & 0xFE) + which_tile);
+                            byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
+                            byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
+
+                            byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
+                            byte highBit = (byte)((highBits >> (7 - i)) & 1);
+                            byte color_index = (byte)(lowBit + highBit * 2);
+
+                            if (color_index > 0)
+                            {
+                                // TODO : Respect BG/Sprite precedence
+                                if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                                {
+                                    uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
+                                    uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+
+                                    _imageData[image_index] = pixelColor;
+                                }
                             }
+
                         }
                         else
                         {
-                            // Do sprites draw a background color or simply defer to BG?
+                            int ti = px - sprite_x;
+                            int tj = py - sprite_y;
+
+                            int i = flipHorizontal ? 7 - ti : ti;
+                            int j = flipVertical ? 7 - tj : tj;
+
+                            ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
+                            byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
+                            byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
+
+                            byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
+                            byte highBit = (byte)((highBits >> (7 - i)) & 1);
+                            byte color_index = (byte)(lowBit + highBit * 2);
+
+                            if (color_index > 0)
+                            {
+                                // TODO : Respect BG/Sprite precedence
+                                if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                                {
+                                    uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
+                                    uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+
+                                    _imageData[image_index] = pixelColor;
+                                }
+                            }
                         }
+
                     }
                 }
-
             }
         }
-
+        
         public void assembleImage()
         {
             // clear the image
@@ -408,19 +451,19 @@ namespace DotNES.Core
 
                 byte returnValue;
                 // Reads below 0x3F00 actually return the contents of an internal read buffer.
-                if(readAddress < 0x3F00)
+                if (readAddress < 0x3F00)
                 {
                     returnValue = PPUDATA_ReadBuffer;
                     PPUDATA_ReadBuffer = readRAM((ushort)(_PPUADDR & 0x3FFF));
                 }
                 else
                 {
-                    returnValue = readRAM((ushort)(_PPUADDR & 0x3FFF)); 
+                    returnValue = readRAM((ushort)(_PPUADDR & 0x3FFF));
                 }
-                
+
                 int increment = (_PPUCTRL & 4) == 0 ? 1 : 32;
                 _PPUADDR = (ushort)((_PPUADDR + increment) & 0xFFFF);
-                
+
                 return returnValue;
             }
             Console.WriteLine(string.Format("Unimplemented read to PPU @ {0:X}", addr));

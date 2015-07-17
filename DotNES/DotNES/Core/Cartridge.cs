@@ -120,6 +120,12 @@ namespace DotNES.Core
                 case 0:
                     mapperControlsNametableMirroring = false;
                     return new Mapper000(this);
+                case 2:
+                    mapperControlsNametableMirroring = false;
+                    return new Mapper002(this);
+                case 3:
+                    mapperControlsNametableMirroring = false;
+                    return new Mapper003(this);
                 default:
                     break;
             }

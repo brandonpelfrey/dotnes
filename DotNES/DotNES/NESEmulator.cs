@@ -34,7 +34,7 @@ namespace DotNES
 
         private void initializeSystem()
         {
-            cart = new Cartridge("C:\\roms\\dk.nes");
+            cart = new Cartridge("C:\\roms\\galaga.nes");
             system = new NESConsole(cart);
             system.cpu.coldBoot();
             system.ppu.setLoggerEnabled(false);
