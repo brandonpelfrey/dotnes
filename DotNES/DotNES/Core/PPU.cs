@@ -64,8 +64,10 @@ namespace DotNES.Core
             }
         }
 
-        private void drawBackground()
+        private void drawBackground(int px, int py)
         {
+            if ((_PPUMASK & 2) == 0 && px < 8) return;
+
             int ppu_scroll_x = (_PPUSCROLL >> 8) & 0xFF;
             int ppu_scroll_y = _PPUSCROLL & 0xFF;
 
@@ -76,214 +78,216 @@ namespace DotNES.Core
             // There are two background pattern table possibilities, use the one selected by PPUCTRL.
             ushort bg_pattern_base = (ushort)((_PPUCTRL & 0x10) == 0 ? 0x0000 : 0x1000);
 
-            for (int px = 0; px < 256; ++px)
+            // 0 | 1
+            // -----
+            // 2 | 3
+            int which_nametable = 0;
+
+            // nametable_x/y are the coordinates relative to the top-left of whichever nametable this pixel is inside
+            int nametable_x = (ppu_scroll_x + px) % 512;
+            if (nametable_x >= 256)
             {
-                for (int py = 0; py < 240; ++py)
+                which_nametable += 1;
+                nametable_x -= 256;
+            }
+
+            int nametable_y = (ppu_scroll_y + py) % 480;
+            if (nametable_y >= 240)
+            {
+                which_nametable += 2;
+                nametable_y -= 240;
+            }
+
+            int nametable_tile_x = nametable_x / 8;
+            int nametable_tile_y = nametable_y / 8;
+
+            int attribute_x = nametable_tile_x / 4;
+            int attribute_y = nametable_tile_y / 4;
+
+            // Compute palette number
+
+            // The attribute table start depends on which nametable we're in.
+            // (Start of Nametables in memory + each nametable is 1K + 0x3C0 bytes until the start of the AT)
+            int nametable_start = 0x2000 + 0x400 * which_nametable;
+
+            int attribute_table_base = nametable_start + 0x3C0;
+            int attributeTableIndex = attribute_y * 8 + attribute_x;
+            byte attributeTableEntry = readRAM((ushort)(attribute_table_base + attributeTableIndex));
+
+            // which pallete to derive the color from
+            int which_palette = 0;
+            which_palette |= nametable_tile_x % 4 >= 2 ? 2 : 0;
+            which_palette |= nametable_tile_y % 4 >= 2 ? 4 : 0;
+
+            // Use the previous value to select the two-bit palette number
+            byte palette_num = (byte)((attributeTableEntry >> which_palette) & 3);
+
+            // Compute color index
+
+            int nt_index = nametable_tile_y * 32 + nametable_tile_x;
+            ushort pt_index = readRAM((ushort)(nametable_start + nt_index)); // TODO : Handle nametable mirroring properly
+
+            int tile_x = nametable_x % 8;
+            int tile_y = nametable_y % 8;
+
+            byte lowBits = getPatternTable((ushort)(bg_pattern_base + pt_index * 16 + tile_y));
+            byte highBits = getPatternTable((ushort)(bg_pattern_base + pt_index * 16 + tile_y + 8));
+
+            byte lowBit = (byte)((lowBits >> (7 - tile_x)) & 1);
+            byte highBit = (byte)((highBits >> (7 - tile_x)) & 1);
+            byte color_index = (byte)(lowBit + highBit * 2);
+
+            // If it's the background color, look at palette 0 (Universally-shared BG color)
+            if (color_index == 0) palette_num = 0;
+
+            byte RGB_index = readRAM((ushort)(0x3F00 + 4 * palette_num + color_index));
+            uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+            _imageData[256 * py + px] = pixelColor;
+
+        }
+
+        byte[] oam_temp = new byte[8];
+        int sprite_count = 0;
+
+        private void computeSpritesForScanline(int scanline)
+        {
+            bool mode816 = (_PPUCTRL & 0x20) != 0;
+            sprite_count = 0;
+            for (byte oam_index = 0; oam_index < 64 && sprite_count < 8; ++oam_index)
+            {
+                byte sprite_y = OAM[oam_index * 4 + 0];
+                int max_y_offset = mode816 ? 16 : 8;
+
+                if (scanline >= sprite_y && (scanline < sprite_y + max_y_offset))
                 {
-                    // 0 | 1
-                    // -----
-                    // 2 | 3
-                    int which_nametable = 0;
-
-                    // nametable_x/y are the coordinates relative to the top-left of whichever nametable this pixel is inside
-                    int nametable_x = (ppu_scroll_x + px) % 512;
-                    if (nametable_x >= 256)
-                    {
-                        which_nametable += 1;
-                        nametable_x -= 256;
-                    }
-
-                    int nametable_y = (ppu_scroll_y + py) % 480;
-                    if (nametable_y >= 240)
-                    {
-                        which_nametable += 2;
-                        nametable_y -= 240;
-                    }
-
-                    int nametable_tile_x = nametable_x / 8;
-                    int nametable_tile_y = nametable_y / 8;
-
-                    int attribute_x = nametable_tile_x / 4;
-                    int attribute_y = nametable_tile_y / 4;
-
-                    // Compute palette number
-
-                    // The attribute table start depends on which nametable we're in.
-                    // (Start of Nametables in memory + each nametable is 1K + 0x3C0 bytes until the start of the AT)
-                    int nametable_start = 0x2000 + 0x400 * which_nametable;
-
-                    int attribute_table_base = nametable_start + 0x3C0;
-                    int attributeTableIndex = attribute_y * 8 + attribute_x;
-                    byte attributeTableEntry = readRAM((ushort)(attribute_table_base + attributeTableIndex));
-
-                    // which pallete to derive the color from
-                    int which_palette = 0;
-                    which_palette |= nametable_tile_x % 4 >= 2 ? 2 : 0;
-                    which_palette |= nametable_tile_y % 4 >= 2 ? 4 : 0;
-
-                    // Use the previous value to select the two-bit palette number
-                    byte palette_num = (byte)((attributeTableEntry >> which_palette) & 3);
-
-                    // Compute color index
-
-                    int nt_index = nametable_tile_y * 32 + nametable_tile_x;
-                    ushort pt_index = readRAM((ushort)(nametable_start + nt_index)); // TODO : Handle nametable mirroring properly
-
-                    int tile_x = nametable_x % 8;
-                    int tile_y = nametable_y % 8;
-
-                    byte lowBits = getPatternTable((ushort)(bg_pattern_base + pt_index * 16 + tile_y));
-                    byte highBits = getPatternTable((ushort)(bg_pattern_base + pt_index * 16 + tile_y + 8));
-
-                    byte lowBit = (byte)((lowBits >> (7 - tile_x)) & 1);
-                    byte highBit = (byte)((highBits >> (7 - tile_x)) & 1);
-                    byte color_index = (byte)(lowBit + highBit * 2);
-
-                    // If it's the background color, look at palette 0 (Universally-shared BG color)
-                    if (color_index == 0) palette_num = 0;
-
-                    byte RGB_index = readRAM((ushort)(0x3F00 + 4 * palette_num + color_index));
-                    uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
-                    _imageData[256 * py + px] = pixelColor;
+                    oam_temp[sprite_count] = oam_index;
+                    sprite_count++;
                 }
             }
         }
 
-        private void drawSprites()
+        private void drawSprites(int px, int py)
         {
             uint universalBackgroundColor = RGBA_PALETTE[readRAM(0x3F00)];
-
-            byte[] oam_temp = new byte[8];
 
             // Are we drawing 8x16 sprites?
             bool mode816 = (_PPUCTRL & 0x20) != 0;
 
-            // For each pixel
-            for (int py = 1; py < 240; ++py)
+            int image_index = py * 256 + px;
+
+            if ((_PPUMASK & 4) == 0 && px < 8) return;
+
+            // Check each sprite 
+            for (int spr_index = 0; spr_index < sprite_count; ++spr_index)
             {
-                // Find sprites for this scanline
-                int sprite_count = 0;
-                for (byte oam_index = 0; oam_index < 64 && sprite_count < 8; ++oam_index)
-                {
-                    byte sprite_y = OAM[oam_index * 4 + 0];
-                    int max_y_offset = mode816 ? 16 : 8;
+                int oam_index = oam_temp[spr_index];
 
-                    if (py >= sprite_y && (py < sprite_y + max_y_offset))
+                byte sprite_y = OAM[oam_index * 4 + 0];
+                byte pt_index = OAM[oam_index * 4 + 1];
+                byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3); // There are several bits that are "unimplemented" (always return zero during read)
+                byte sprite_x = OAM[oam_index * 4 + 3];
+
+                byte palette_number = (byte)(attributes & 3);
+                bool inFrontOfBG = (attributes & 0x20) == 0;
+                bool flipHorizontal = (attributes & 0x40) != 0;
+                bool flipVertical = (attributes & 0x80) != 0;
+
+                // Sprites are never drawn on if their y-coord is 0
+                if (sprite_y == 0 || sprite_y >= 240)
+                    continue;
+
+                if (px - sprite_x >= 8 || px < sprite_x)
+                    continue;
+
+                if (mode816)
+                {
+                    int which_tile = 0;
+                    if (py - sprite_y >= 8)
+                        which_tile = 1;
+                    if (flipVertical)
+                        which_tile = 1 - which_tile;
+
+                    int ti = px - sprite_x;
+                    int tj = (py - sprite_y) % 8; // Tiles are only 8x8, so handle when we're looking at the second tile
+
+                    int i = flipHorizontal ? 7 - ti : ti;
+                    int j = flipVertical ? 7 - tj : tj;
+
+                    ushort sprite_pattern_table_base = (ushort)((pt_index & 1) == 0 ? 0x0000 : 0x1000);
+                    pt_index = (byte)((pt_index & 0xFE) + which_tile);
+                    byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
+                    byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
+
+                    byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
+                    byte highBit = (byte)((highBits >> (7 - i)) & 1);
+                    byte color_index = (byte)(lowBit + highBit * 2);
+
+                    if (color_index > 0)
                     {
-                        oam_temp[sprite_count] = oam_index;
-                        sprite_count++;
+                        // TODO : Respect BG/Sprite precedence
+                        if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                        {
+                            // Sprite Zero Hit?
+                            if (oam_index == 0 && _imageData[image_index] != universalBackgroundColor)
+                                _PPUSTATUS |= 0x40;
+
+                            uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
+                            uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+
+                            _imageData[image_index] = pixelColor;
+                        }
+                    }
+
+                }
+                else
+                {
+                    int ti = px - sprite_x;
+                    int tj = py - sprite_y;
+
+                    int i = flipHorizontal ? 7 - ti : ti;
+                    int j = flipVertical ? 7 - tj : tj;
+
+                    ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
+                    byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
+                    byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
+
+                    byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
+                    byte highBit = (byte)((highBits >> (7 - i)) & 1);
+                    byte color_index = (byte)(lowBit + highBit * 2);
+
+                    if (color_index > 0)
+                    {
+                        // TODO : Respect BG/Sprite precedence
+                        if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                        {
+                            // Sprite Zero Hit?
+                            if (oam_index == 0 && _imageData[image_index] != universalBackgroundColor)
+                                _PPUSTATUS |= 0x40;
+
+                            uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
+                            uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+
+                            _imageData[image_index] = pixelColor;
+                        }
                     }
                 }
-                
-                for (int px = 0; px < 256; ++px)
-                {
-                    int image_index = py * 256 + px;
 
-                    // Check each sprite 
-                    for (int spr_index = 0; spr_index < sprite_count; ++spr_index)
-                    {
-                        int oam_index = oam_temp[spr_index];
-
-                        byte sprite_y = OAM[oam_index * 4 + 0];
-                        byte pt_index = OAM[oam_index * 4 + 1];
-                        byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3); // There are several bits that are "unimplemented" (always return zero during read)
-                        byte sprite_x = OAM[oam_index * 4 + 3];
-
-                        byte palette_number = (byte)(attributes & 3);
-                        bool inFrontOfBG = (attributes & 0x20) == 0;
-                        bool flipHorizontal = (attributes & 0x40) != 0;
-                        bool flipVertical = (attributes & 0x80) != 0;
-
-                        // Sprites are never drawn on if their y-coord is 0
-                        if (sprite_y == 0 || sprite_y >= 240)
-                            continue;
-
-                        if (px - sprite_x >= 8 || px < sprite_x)
-                            continue;
-
-                        if (mode816 && true)
-                        {
-                            int which_tile = 0;
-                            if(py - sprite_y >= 8)
-                                which_tile = 1;
-                            if (flipVertical)
-                                which_tile = 1 - which_tile;
-
-                            int ti = px - sprite_x;
-                            int tj = (py - sprite_y) % 8; // Tiles are only 8x8, so handle when we're looking at the second tile
-
-                            int i = flipHorizontal ? 7 - ti : ti;
-                            int j = flipVertical ? 7 - tj : tj;
-
-                            ushort sprite_pattern_table_base = (ushort)((pt_index & 1) == 0 ? 0x0000 : 0x1000);
-                            pt_index = (byte)((pt_index & 0xFE) + which_tile);
-                            byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
-                            byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
-
-                            byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
-                            byte highBit = (byte)((highBits >> (7 - i)) & 1);
-                            byte color_index = (byte)(lowBit + highBit * 2);
-
-                            if (color_index > 0)
-                            {
-                                // TODO : Respect BG/Sprite precedence
-                                if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
-                                {
-                                    uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
-                                    uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
-
-                                    _imageData[image_index] = pixelColor;
-                                }
-                            }
-
-                        }
-                        else
-                        {
-                            int ti = px - sprite_x;
-                            int tj = py - sprite_y;
-
-                            int i = flipHorizontal ? 7 - ti : ti;
-                            int j = flipVertical ? 7 - tj : tj;
-
-                            ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
-                            byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
-                            byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
-
-                            byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
-                            byte highBit = (byte)((highBits >> (7 - i)) & 1);
-                            byte color_index = (byte)(lowBit + highBit * 2);
-
-                            if (color_index > 0)
-                            {
-                                // TODO : Respect BG/Sprite precedence
-                                if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
-                                {
-                                    uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
-                                    uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
-
-                                    _imageData[image_index] = pixelColor;
-                                }
-                            }
-                        }
-
-                    }
-                }
             }
         }
-        
-        public void assembleImage()
+
+        public void assembleImage(int px, int py)
         {
             // clear the image
-            for (int i = 0; i < _imageData.Length; ++i)
-                _imageData[i] = 0x000000FF;
+            //for (int i = 0; i < _imageData.Length; ++i)
+            //    _imageData[i] = 0x000000FF;
 
             // Should we draw the background?
             if ((_PPUMASK & 8) != 0)
-                drawBackground();
+                drawBackground(px, py);
 
             // Should we draw the sprites?
             if ((_PPUMASK & 0x10) != 0)
-                drawSprites();
+                drawSprites(px, py);
 
         }
 
@@ -327,29 +331,32 @@ namespace DotNES.Core
             // -1      : Pre-scanline        0-239   : Visible scanlines
             // 240     : Nada?               241-260 : Vertical Blanking
 
-            bool showBackground = (_PPUMASK & 0x80) != 0;
-
-            // At the very start of the VBlank region, NMI is triggered.
-            if (scanline >= 241 && x == 1)
+            if (x == 256)
             {
+                computeSpritesForScanline(scanline + 1);
+            }
+
+            if (scanline >= 0 && scanline < 240 && x > 0 && x <= 256)
+            {
+                // There are 256 columns to the image, but the first PPU tick of the scanline does nothing, so delay by 1
+                assembleImage(x - 1, scanline);
+            }
+
+            // At the very start of the VBlank region, let the CPU know.
+            if (scanline == 241 && x == 1)
                 _PPUSTATUS |= 0x80;
 
-                // Potentially trigger NMI for start of VBlank
-                if ((byte)(_PPUCTRL & 0x80) != 0 && scanline == 241)
-                {
-                    console.cpu.nmi = true;
-                }
+            // Potentially trigger NMI at the start of VBlank
+            if ((byte)(_PPUCTRL & 0x80) != 0 && scanline == 241 && x == 1)
+            {
+                console.cpu.nmi = true;
             }
 
             x++;
 
             // Variable line width for the pre-scanline depending on even/odd frame
-            if (scanline == -1 && oddFrame && x == 339)
-            {
-                x = 0;
-                scanline++;
-            }
-            else if (x == 340)
+            int columns_this_frame = oddFrame && scanline == -1 ? 341 : 340;
+            if (x == columns_this_frame + 1)
             {
                 scanline++;
                 x = 0;
@@ -359,6 +366,9 @@ namespace DotNES.Core
             {
                 // We're no longer in VBlank region
                 _PPUSTATUS = (byte)(_PPUSTATUS & 0x7F);
+
+                // Clear Sprite Zero Hit
+                _PPUSTATUS &= 0xBF;
 
                 scanline = -1;
                 _frameCount++;

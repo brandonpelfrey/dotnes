@@ -19,9 +19,10 @@ namespace DotNES.Core
         public Cartridge cartridge { get; set; }
 
         private long _CpuCycle;
-        public long CPUCyclesExecuted 
+        public long CPUCyclesExecuted
         {
-            get {
+            get
+            {
                 return _CpuCycle;
             }
         }
@@ -54,7 +55,7 @@ namespace DotNES.Core
         {
             int cpuCycles = cpu.step();
             this._CpuCycle += cpuCycles;
-            for (int i = 0; i < cpuCycles; ++i)
+            for (int i = 0; i < cpuCycles * 3; ++i)
                 ppu.step();
         }
     }

@@ -2402,15 +2402,18 @@ namespace DotNES
             }
 
             if (log.IsEnabled)
-                printPreInvoke(opcodeMethod);
+                printCPUState();
 
             return (int)opcodeMethod.Invoke(this, null);
         }
 
-        public void printPreInvoke(MethodInfo opcodeMethodInfo)
+        public void printCPUState()
         {
+            byte opcode = console.memory.read8(_PC);
+            MethodInfo opcodeMethodInfo = opcodeFunctions[opcode];
+            //if (opcodeMethodInfo == null) return;
+
             OpCodeAttribute opcodeMethodAttribute = Attribute.GetCustomAttribute(opcodeMethodInfo, typeof(OpCodeAttribute), false) as OpCodeAttribute;
-            byte opcode = opcodeMethodAttribute.opcode;
 
             string format = "{0,-9} [{1:X2} {2:X2} {3:X2} {4:X2} {5}] $CYAN${6:X4}$RESET$ $RED${7}";
 

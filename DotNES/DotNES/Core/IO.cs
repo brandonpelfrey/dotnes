@@ -241,7 +241,7 @@ namespace DotNES.Core
 
         private byte getPressedKeys()
         {
-            long frame = console.ppu.FrameCount;
+            long frame = console.ppu.FrameCount - 1;
             if (frame >= 0 && frame < keysForFrame.Length)
                 return keysForFrame[frame];
             else

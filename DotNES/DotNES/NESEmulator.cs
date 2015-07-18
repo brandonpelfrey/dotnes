@@ -34,7 +34,7 @@ namespace DotNES
 
         private void initializeSystem()
         {
-            cart = new Cartridge("C:\\roms\\galaga.nes");
+            cart = new Cartridge("C:\\roms\\castlevania.nes");
             system = new NESConsole(cart);
             system.cpu.coldBoot();
             system.ppu.setLoggerEnabled(false);
@@ -70,9 +70,14 @@ namespace DotNES
         {
             if (Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
+            if (Keyboard.GetState().IsKeyDown(Keys.U))
+            {
+                system.cpu.setLoggerEnabled(true);
+                system.cpu.printCPUState();
+                system.cpu.setLoggerEnabled(false);
+            }
 
             frameAdvance();
-            system.ppu.assembleImage();
             updateDrawTexture();
 
             base.Update(gameTime);
