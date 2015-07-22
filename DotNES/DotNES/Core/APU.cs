@@ -244,6 +244,10 @@ namespace DotNES.Core
             }
         }
 
+        // Ignoring phase of the signal for now 
+        // Documentation on values http://wiki.nesdev.com/w/index.php/APU_Pulse 
+        double[] dutyMap = new double[] { .125, .25, .5, .75 };
+
         public float getPulseAudio(Pulse pulse, int timeInSamples)
         {
             if (!pulse.ENABLED || pulse.current_length_counter == 0)
@@ -256,8 +260,9 @@ namespace DotNES.Core
             double frequency = 106250.0 / pulse.TIMER;
             double normalizedSampleTime = timeInSamples * frequency / sampleRate;
 
-            float sinResponse = (float)Math.Sin(normalizedSampleTime * 2 * Math.PI);
-            return (sinResponse > 0f ? 1f : -1f) * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
+            double fractionalNormalizedSampleTime = normalizedSampleTime - Math.Floor(normalizedSampleTime);
+            float dutyPulse = fractionalNormalizedSampleTime < dutyMap[pulse.DUTY] ? 1 : -1;
+            return dutyPulse * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
         }
 
         public float getTriangleAudio(Triangle triangle, int timeInSamples)
