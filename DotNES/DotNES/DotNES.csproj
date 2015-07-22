@@ -71,10 +71,12 @@
     <Compile Include="Core\IO.cs" />
     <Compile Include="Core\CPU.cs" />
     <Compile Include="Core\Memory.cs" />
+    <Compile Include="Core\NametableMirroringMode.cs" />
     <Compile Include="Core\OpCodeAttribute.cs" />
     <Compile Include="Core\PPU.cs" />
     <Compile Include="Core\NESConsole.cs" />
     <Compile Include="Mappers\Mapper.cs" />
+    <Compile Include="Mappers\Mapper001.cs" />
     <Compile Include="Mappers\Mapper002.cs" />
     <Compile Include="Mappers\Mapper000.cs" />
     <Compile Include="Mappers\Mapper003.cs" />

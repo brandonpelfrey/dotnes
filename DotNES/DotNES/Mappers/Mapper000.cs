@@ -46,7 +46,7 @@ namespace DotNES.Mappers
 
         public override byte readCHR(ushort address)
         {
-            return cartridge.CHRRomData[address];
+            return cartridge.CHRRomData[address % (this.cartridge.CHRROM_8KBankCount * 0x2000) ];
         }
 
         public override void write(ushort address, byte val)

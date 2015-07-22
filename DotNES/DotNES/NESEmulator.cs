@@ -24,8 +24,8 @@ namespace DotNES
         public NESEmulator()
         {
             graphics = new GraphicsDeviceManager(this);
-            graphics.PreferredBackBufferWidth = 512;
-            graphics.PreferredBackBufferHeight = 512;
+            graphics.PreferredBackBufferWidth = 1024;
+            graphics.PreferredBackBufferHeight = 1024;
             IsMouseVisible = true;
             Window.AllowUserResizing = true;
 
@@ -34,7 +34,7 @@ namespace DotNES
 
         private void initializeSystem()
         {
-            cart = new Cartridge("C:\\roms\\castlevania.nes");
+            cart = new Cartridge("C:\\roms\\dk.nes");
             system = new NESConsole(cart);
             system.cpu.coldBoot();
             system.ppu.setLoggerEnabled(false);

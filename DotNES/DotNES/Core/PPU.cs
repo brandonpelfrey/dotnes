@@ -64,6 +64,13 @@ namespace DotNES.Core
             }
         }
 
+        private bool backgroundRenderingEnabled()
+        {
+            return (_PPUMASK & 0x08) != 0;
+        }
+
+        byte[] backgroundCHRValues = new byte[256 * 240];
+
         private void drawBackground(int px, int py)
         {
             if ((_PPUMASK & 2) == 0 && px < 8) return;
@@ -140,10 +147,11 @@ namespace DotNES.Core
             // If it's the background color, look at palette 0 (Universally-shared BG color)
             if (color_index == 0) palette_num = 0;
 
+            backgroundCHRValues[256 * py + px] = color_index;
+
             byte RGB_index = readRAM((ushort)(0x3F00 + 4 * palette_num + color_index));
             uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
             _imageData[256 * py + px] = pixelColor;
-
         }
 
         byte[] oam_temp = new byte[8];
@@ -155,7 +163,7 @@ namespace DotNES.Core
             sprite_count = 0;
             for (byte oam_index = 0; oam_index < 64 && sprite_count < 8; ++oam_index)
             {
-                byte sprite_y = OAM[oam_index * 4 + 0];
+                byte sprite_y = (byte)(OAM[oam_index * 4 + 0]+1);
                 int max_y_offset = mode816 ? 16 : 8;
 
                 if (scanline >= sprite_y && (scanline < sprite_y + max_y_offset))
@@ -169,6 +177,7 @@ namespace DotNES.Core
         private void drawSprites(int px, int py)
         {
             uint universalBackgroundColor = RGBA_PALETTE[readRAM(0x3F00)];
+            byte backgroundCHRValue = backgroundCHRValues[256 * py + px];
 
             // Are we drawing 8x16 sprites?
             bool mode816 = (_PPUCTRL & 0x20) != 0;
@@ -182,7 +191,7 @@ namespace DotNES.Core
             {
                 int oam_index = oam_temp[spr_index];
 
-                byte sprite_y = OAM[oam_index * 4 + 0];
+                byte sprite_y = (byte)(OAM[oam_index * 4 + 0]+1);
                 byte pt_index = OAM[oam_index * 4 + 1];
                 byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3); // There are several bits that are "unimplemented" (always return zero during read)
                 byte sprite_x = OAM[oam_index * 4 + 3];
@@ -228,8 +237,10 @@ namespace DotNES.Core
                         if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
                         {
                             // Sprite Zero Hit?
-                            if (oam_index == 0 && _imageData[image_index] != universalBackgroundColor)
+                            if (oam_index == 0 && 0 != backgroundCHRValue && backgroundRenderingEnabled())
+                            {
                                 _PPUSTATUS |= 0x40;
+                            }
 
                             uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
                             uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
@@ -261,8 +272,11 @@ namespace DotNES.Core
                         if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
                         {
                             // Sprite Zero Hit?
-                            if (oam_index == 0 && _imageData[image_index] != universalBackgroundColor)
+                            if (oam_index == 0 && 0 != backgroundCHRValue && backgroundRenderingEnabled())
+                            {
+                                Console.WriteLine("asd");
                                 _PPUSTATUS |= 0x40;
+                            }
 
                             uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
                             uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
@@ -277,10 +291,6 @@ namespace DotNES.Core
 
         public void assembleImage(int px, int py)
         {
-            // clear the image
-            //for (int i = 0; i < _imageData.Length; ++i)
-            //    _imageData[i] = 0x000000FF;
-
             // Should we draw the background?
             if ((_PPUMASK & 8) != 0)
                 drawBackground(px, py);
@@ -399,7 +409,7 @@ namespace DotNES.Core
         // Abstract grabbing data from the pattern tables since it could either be in VRAM, or directly mapped to CHR-ROM via the mapper
         private byte getPatternTable(ushort address)
         {
-            if (console.mapper.mapsCHR())
+            if (true && console.mapper.mapsCHR())
             {
                 return console.mapper.readCHR(address);
             }
@@ -411,20 +421,27 @@ namespace DotNES.Core
             // Handle nametable mirroring
             if (addr >= 0x2000 && addr <= 0x2FFF)
             {
-                if (console.cartridge.mapperControlsNametableMirroring)
+                if (console.cartridge.NametableMirroring == NametableMirroringMode.Vertical)
                 {
-                    // TODO : Handle MMC1/3 and others that control nametable mirroring 
+                    return addr >= 0x2800 ? RAM[addr - 0x800] : RAM[addr];
+                }
+                else if (console.cartridge.NametableMirroring == NametableMirroringMode.Horizontal)
+                {
+                    return RAM[addr & 0xFBFF];
+                }
+                else if (console.cartridge.NametableMirroring == NametableMirroringMode.OneScreenLowBank)
+                {
+                    addr -= 0x2000;
+                    if (addr >= 0x800) addr -= 0x800;
+                    addr &= 0x3FF;
+                    return RAM[0x2000 + addr];
                 }
                 else
                 {
-                    if (console.cartridge.nametableIsVerticalMirrored)
-                    {
-                        return addr >= 0x2800 ? RAM[addr - 0x800] : RAM[addr];
-                    }
-                    else
-                    {
-                        return RAM[addr & 0xFBFF];
-                    }
+                    addr -= 0x2000;
+                    if (addr >= 0x800) addr -= 0x800;
+                    addr &= 0x3FF;
+                    return RAM[0x2400 + addr];
                 }
             }
 
@@ -433,6 +450,11 @@ namespace DotNES.Core
 
         private void writeRAM(ushort addr, byte val)
         {
+            if (addr == 0x3F10 || addr == 0x3F14 || addr == 0x3F18 || addr == 0x3F1C)
+            {
+                RAM[addr - 0x10] = val;
+            }
+
             RAM[addr] = val;
         }
 
@@ -452,7 +474,7 @@ namespace DotNES.Core
                 // Reading the status register clears the "NMI Occurred" flag, but still returns
                 // the old value of the register before clearing the flag.
                 byte result = _PPUSTATUS;
-                _PPUSTATUS &= 0x7F;
+                _PPUSTATUS &= (0x7F);
                 return result;
             }
             else if (addr == 0x2007)

@@ -22,8 +22,7 @@ namespace DotNES.Core
         public bool BatteryBackedRAM { get; private set; }
         public bool isNTSC { get; private set; }
 
-        public bool nametableIsVerticalMirrored { get; private set; }
-        public bool mapperControlsNametableMirroring { get; private set; }
+        public NametableMirroringMode NametableMirroring { get; set; }
 
         #region iNES ROM Loader
 
@@ -58,7 +57,7 @@ namespace DotNES.Core
             int flag9 = header[9];
             int flag10 = header[10];
 
-            nametableIsVerticalMirrored = (flag6 & 1) == 1;
+            NametableMirroring = (flag6 & 1) == 1 ? NametableMirroringMode.Vertical : NametableMirroringMode.Horizontal;
 
             bool usesTrainer = (flag6 & 4) != 0;
             if (usesTrainer)
@@ -84,7 +83,7 @@ namespace DotNES.Core
 
             // Now that we know all the 'metadata' about the file, load the actual data.
             int prgStart = 16 + (usesTrainer ? 512 : 0);
-            int prgBytes = 16384 * PRGROM_16KBankCount;
+            int prgBytes = 0x4000 * PRGROM_16KBankCount;
             PRGRomData = new ArraySegment<byte>(fullRomData, prgStart, prgBytes).ToArray();
 
             int chrStart = prgStart + prgBytes;
@@ -93,7 +92,7 @@ namespace DotNES.Core
 
             log.info("ROM Details --");
             log.info(" * Mapper #{0}", MapperNumber);
-            log.info(" * Nametable is {0} mirrored.", nametableIsVerticalMirrored ? "vertically" : "horizontally");
+            log.info(" * Nametable mirroring mode is {0}.", NametableMirroring.ToString());
             log.info(" * {0} Output", isNTSC ? "NTSC" : "PAL");
             if (BatteryBackedRAM) log.info(" * Battery-backed RAM ('Game Saves' supported)");
 
@@ -118,13 +117,12 @@ namespace DotNES.Core
             switch (MapperNumber)
             {
                 case 0:
-                    mapperControlsNametableMirroring = false;
                     return new Mapper000(this);
+                case 1:
+                    return new Mapper001(this);
                 case 2:
-                    mapperControlsNametableMirroring = false;
                     return new Mapper002(this);
                 case 3:
-                    mapperControlsNametableMirroring = false;
                     return new Mapper003(this);
                 default:
                     break;
