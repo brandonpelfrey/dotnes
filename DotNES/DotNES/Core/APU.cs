@@ -13,7 +13,8 @@ namespace DotNES.Core
     {
         Logger log = new Logger("APU");
 
-        public APU() {
+        public APU()
+        {
             this.audioBuffer = new AudioBuffer();
             NESWaveProvider nesWaveProvider = new NESWaveProvider(audioBuffer);
             waveOut = new WaveOut();
@@ -82,6 +83,7 @@ namespace DotNES.Core
                         break;
                     case 3: // 0x4003 or 0x4007
                         pulse.LENGTH_COUNTER_LOAD = (byte)((val >> 3) & 0x1F);
+                        pulse.current_length_counter = lengthCounterLookupTable[pulse.LENGTH_COUNTER_LOAD];
                         pulse.TIMER = (ushort)((pulse.TIMER & 0x00FF) | ((val & 0x7) << 8));
                         break;
                     default:
@@ -158,16 +160,21 @@ namespace DotNES.Core
         public void writeFrameAudio()
         {
             frame++;
-            for (int i=0; i<samplesPerFrame; i++)
+            stepFrame(PULSE_ONE);
+            stepFrame(PULSE_TWO);
+            stepFrame(TRIANGLE);
+
+            for (int i = 0; i < samplesPerFrame; i++)
             {
                 float pulseOne = getPulseAudio(PULSE_ONE, timeInSamples);
                 float pulseTwo = getPulseAudio(PULSE_TWO, timeInSamples);
                 float tri = getTriangleAudio(TRIANGLE, timeInSamples);
+
                 //TODO we can't just add these together, should use actual or approximation of actual mixer
-                audioBuffer.write( pulseOne + pulseTwo + tri);
+                audioBuffer.write(pulseOne + pulseTwo + tri);
                 timeInSamples++;
             }
-
+            
             //Audio fails if we start right away, so waiting to build audio buffer for 10 frames
             //TODO handle better
             if (frame == 10)
@@ -175,29 +182,68 @@ namespace DotNES.Core
                 waveOut.Play();
             }
 
-            if (timeInSamples > 10000000) {
+            if (timeInSamples > 10000000)
+            {
                 //TODO handle this better, probably will cause a pop every million samples (~200 seconds)
                 timeInSamples = 0;
             }
         }
-        
+
+        // TODO support 4 step and 5 step modes (assumes 4 step mode)
+        private void stepFrame(Pulse pulse)
+        {
+            if (!pulse.LENGTH_COUNTER_HALT)
+            {
+                pulse.current_length_counter -= 2;
+                if (pulse.current_length_counter < 0)
+                {
+                    pulse.current_length_counter = 0;
+                }
+            }
+        }
+
+        private void stepFrame(Triangle triangle)
+        {
+            if (!triangle.LENGTH_COUNTER_HALT)
+            {
+                if (triangle.LINEAR_COUNTER_LOAD <= 2)
+                {
+                    triangle.LINEAR_COUNTER_LOAD = 0;
+                }
+                else
+                {
+                    triangle.LINEAR_COUNTER_LOAD -= 2;
+                }
+            }
+        }
+
         public float getPulseAudio(Pulse pulse, int timeInSamples)
         {
+            if (!pulse.ENABLED || pulse.current_length_counter == 0)
+            {
+                return 0.0f;
+            }
+
             //Frequency is the clock speed of the CPU ~ 1.7MH divided by 16 divied by the timer.
             //TODO pretty much everything here, only looking at frequency flag right now
             double frequency = 106250.0 / pulse.TIMER;
             double normalizedSampleTime = timeInSamples * frequency / sampleRate;
-            
+
             float sinResponse = (float)Math.Sin(normalizedSampleTime * 2 * Math.PI);
             return (sinResponse > 0f ? 1f : -1f) * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
         }
 
         public float getTriangleAudio(Triangle triangle, int timeInSamples)
         {
+            if (!triangle.ENABLED || triangle.LINEAR_COUNTER_LOAD == 0)
+            {
+                return 0.0f;
+            }
+
             // Triangle plays one octave lower than the given frequency
             double frequency = 106250.0 / triangle.TIMER / 2;
             double normalizedSampleTime = timeInSamples * frequency / sampleRate;
-            
+
             // Given the frequency, determine where we are inside a single triangle waveform as a point in [0,1]
             //  1      /\
             //        /  \
@@ -213,11 +259,14 @@ namespace DotNES.Core
             else
                 return 3f - 4f * normalized;
         }
+
+        // Values to load for the length counter as documented here http://wiki.nesdev.com/w/index.php/APU_Length_Counter
+        byte[] lengthCounterLookupTable = new byte[] { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 30 };
     }
 
     public class AudioBuffer
     {
-        float[] audioRingBuffer = new float[1<<16];
+        float[] audioRingBuffer = new float[1 << 16];
         ushort startPointer = 0;
         ushort nextSamplePointer = 0;
 
@@ -229,24 +278,26 @@ namespace DotNES.Core
 
         public int copyToArray(float[] audioBuff, int offset, int numSamples)
         {
-            if(startPointer < nextSamplePointer)
+            if (startPointer < nextSamplePointer)
             {
                 ushort amountToCopy = (ushort)Math.Min(nextSamplePointer - startPointer, numSamples);
                 copy(audioRingBuffer, startPointer, audioBuff, offset, amountToCopy);
                 startPointer += amountToCopy;
                 return amountToCopy;
-            } else if (nextSamplePointer < startPointer)
+            }
+            else if (nextSamplePointer < startPointer)
             {
                 int amountAfter = Math.Min(audioRingBuffer.Length - startPointer, numSamples);
                 copy(audioRingBuffer, startPointer, audioBuff, offset, amountAfter);
                 numSamples -= amountAfter;
 
                 int amountBefore = Math.Min(nextSamplePointer, numSamples);
-                copy(audioRingBuffer, 0, audioBuff, offset+amountAfter, amountBefore);
+                copy(audioRingBuffer, 0, audioBuff, offset + amountAfter, amountBefore);
                 int floatsCopied = amountAfter + amountBefore;
                 startPointer += (ushort)floatsCopied;
                 return floatsCopied;
-            } else
+            }
+            else
             {
                 return 0;
             }
@@ -254,7 +305,7 @@ namespace DotNES.Core
 
         public void copy(float[] src, int srcOffset, float[] dest, int destOffset, int length)
         {
-            for(int i=0; i<length; i++)
+            for (int i = 0; i < length; i++)
             {
                 dest[destOffset + i] = src[srcOffset + i];
             }
@@ -266,7 +317,7 @@ namespace DotNES.Core
         private WaveFormat waveFormat;
         private AudioBuffer audioBuffer;
 
-        public NESWaveProvider( AudioBuffer audioBuffer)
+        public NESWaveProvider(AudioBuffer audioBuffer)
             : this(48000, 1)
         {
             this.audioBuffer = audioBuffer;
@@ -290,7 +341,8 @@ namespace DotNES.Core
             return samplesRead * 4;
         }
 
-        public int Read(float[] buffer, int offset, int sampleCount) {
+        public int Read(float[] buffer, int offset, int sampleCount)
+        {
             return audioBuffer.copyToArray(buffer, offset, sampleCount);
         }
 
@@ -302,11 +354,11 @@ namespace DotNES.Core
 
     public class Pulse
     {
-        public bool ENABLED { get; set; }
+        public bool ENABLED { get; set; } = true;
 
         // 0x4000 or 0x4004
         public byte DUTY { get; set; }                     // 2 bits
-        public bool LENGTH_COUNTER_HALT { get; set; }      
+        public bool LENGTH_COUNTER_HALT { get; set; } = true;
         public bool CONSTANT_VOLUME { get; set; }
         public byte ENVELOPE_DIVIDER_PERIOD { get; set; }  // 4 bits
 
@@ -319,6 +371,8 @@ namespace DotNES.Core
         // 0x4002 - 0x4003 or 0x4006 - 0x4007
         public ushort TIMER { get; set; }                  // 11 bits
         public byte LENGTH_COUNTER_LOAD { get; set; }      // 5 bits
+
+        public int current_length_counter { get; set; } = 1;
     }
 
     public class Triangle
@@ -370,7 +424,8 @@ namespace DotNES.Core
         public byte SAMPLE_LENGTH { get; set; }            // 8 bits
     }
 
-    enum FrameCounterMode {
+    enum FrameCounterMode
+    {
         FOUR_STEP = 0,
         FIVE_STEP = 1
     }
