@@ -279,7 +279,30 @@ namespace DotNES.Core
 
         private void tickSweep(Pulse pulse)
         {
-            //TODO
+            if (pulse.sweep_period_counter == 0) {
+                if (pulse.SWEEP_ENABLED)
+                {
+                    int periodAdjustment = pulse.TIMER >> pulse.SWEEP_SHIFT;
+                    int newPeriod;
+                    if (pulse.SWEEP_NEGATE)
+                    {
+                        newPeriod = pulse.TIMER - periodAdjustment;
+                    }
+                    else
+                    {
+                        newPeriod = (pulse.TIMER + periodAdjustment);
+                    }
+                    if (0 < newPeriod && newPeriod < 0x7FF && pulse.SWEEP_SHIFT != 0)
+                    {
+                        pulse.TIMER = (ushort)newPeriod;
+                    }
+                }
+                pulse.sweep_period_counter = pulse.SWEEP_PERIOD;
+            }
+            else
+            {
+                pulse.sweep_period_counter--;
+            }
         }
 
         private void tickLinearCounter(Triangle triangle)
