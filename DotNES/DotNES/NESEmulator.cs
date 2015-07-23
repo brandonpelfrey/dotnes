@@ -24,8 +24,8 @@ namespace DotNES
         public NESEmulator()
         {
             graphics = new GraphicsDeviceManager(this);
-            graphics.PreferredBackBufferWidth = 1024;
-            graphics.PreferredBackBufferHeight = 1024;
+            graphics.PreferredBackBufferWidth = 512;
+            graphics.PreferredBackBufferHeight = 512;
             IsMouseVisible = true;
             Window.AllowUserResizing = true;
 

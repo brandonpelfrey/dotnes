@@ -75,6 +75,7 @@ namespace DotNES.Core
                     case 1: // 0x4001 or 0x4005
                         pulse.SWEEP_ENABLED = ((val >> 7) & 0x1) == 1;
                         pulse.SWEEP_PERIOD = (byte)((val >> 4) & 0x7);
+                        pulse.sweep_period_counter = pulse.SWEEP_PERIOD;
                         pulse.SWEEP_NEGATE = ((val >> 3) & 0x1) == 1;
                         pulse.SWEEP_SHIFT = (byte)((val >> 4) & 0x7);
                         break;
@@ -154,18 +155,21 @@ namespace DotNES.Core
 
         int sampleRate = 48000;
         int samplesPerFrame = 800;
+        int samplesPerAPUFrameTick = 200; // samples per frame / 4;
         int timeInSamples = 0;
         int frame = 0;
 
         public void writeFrameAudio()
         {
             frame++;
-            stepFrame(PULSE_ONE);
-            stepFrame(PULSE_TWO);
-            stepFrame(TRIANGLE);
 
             for (int i = 0; i < samplesPerFrame; i++)
             {
+                if (i % samplesPerAPUFrameTick == 0)
+                {
+                    APUFrameTick();
+                }
+
                 float pulseOne = getPulseAudio(PULSE_ONE, timeInSamples);
                 float pulseTwo = getPulseAudio(PULSE_TWO, timeInSamples);
                 float tri = getTriangleAudio(TRIANGLE, timeInSamples);
@@ -174,7 +178,7 @@ namespace DotNES.Core
                 audioBuffer.write(pulseOne + pulseTwo + tri);
                 timeInSamples++;
             }
-            
+
             //Audio fails if we start right away, so waiting to build audio buffer for 10 frames
             //TODO handle better
             if (frame == 10)
@@ -189,12 +193,30 @@ namespace DotNES.Core
             }
         }
 
+        bool tickLengthCounterAndSweep = false;
+
         // TODO support 4 step and 5 step modes (assumes 4 step mode)
-        private void stepFrame(Pulse pulse)
+        // Documentation http://wiki.nesdev.com/w/index.php/APU
+        private void APUFrameTick()
+        {
+            if (tickLengthCounterAndSweep)
+            {
+                tickLengthCounter(PULSE_ONE);
+                tickLengthCounter(PULSE_TWO);
+                tickSweep(PULSE_ONE);
+                tickSweep(PULSE_TWO);
+            }
+
+            tickLinearCounter(TRIANGLE);
+
+            tickLengthCounterAndSweep = !tickLengthCounterAndSweep;
+        }
+
+        private void tickLengthCounter(Pulse pulse)
         {
             if (!pulse.LENGTH_COUNTER_HALT)
             {
-                pulse.current_length_counter -= 2;
+                pulse.current_length_counter -= 1;
                 if (pulse.current_length_counter < 0)
                 {
                     pulse.current_length_counter = 0;
@@ -202,20 +224,29 @@ namespace DotNES.Core
             }
         }
 
-        private void stepFrame(Triangle triangle)
+        private void tickSweep(Pulse pulse)
+        {
+            //TODO
+        }
+
+        private void tickLinearCounter(Triangle triangle)
         {
             if (!triangle.LENGTH_COUNTER_HALT)
             {
-                if (triangle.LINEAR_COUNTER_LOAD <= 2)
+                if (triangle.LINEAR_COUNTER_LOAD == 0)
                 {
                     triangle.LINEAR_COUNTER_LOAD = 0;
                 }
                 else
                 {
-                    triangle.LINEAR_COUNTER_LOAD -= 2;
+                    triangle.LINEAR_COUNTER_LOAD -= 1;
                 }
             }
         }
+
+        // Ignoring phase of the signal for now 
+        // Documentation on values http://wiki.nesdev.com/w/index.php/APU_Pulse 
+        double[] dutyMap = new double[] { .125, .25, .5, .75 };
 
         public float getPulseAudio(Pulse pulse, int timeInSamples)
         {
@@ -229,8 +260,9 @@ namespace DotNES.Core
             double frequency = 106250.0 / pulse.TIMER;
             double normalizedSampleTime = timeInSamples * frequency / sampleRate;
 
-            float sinResponse = (float)Math.Sin(normalizedSampleTime * 2 * Math.PI);
-            return (sinResponse > 0f ? 1f : -1f) * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
+            double fractionalNormalizedSampleTime = normalizedSampleTime - Math.Floor(normalizedSampleTime);
+            float dutyPulse = fractionalNormalizedSampleTime < dutyMap[pulse.DUTY] ? 1 : -1;
+            return dutyPulse * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
         }
 
         public float getTriangleAudio(Triangle triangle, int timeInSamples)
@@ -261,7 +293,7 @@ namespace DotNES.Core
         }
 
         // Values to load for the length counter as documented here http://wiki.nesdev.com/w/index.php/APU_Length_Counter
-        byte[] lengthCounterLookupTable = new byte[] { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 30 };
+        byte[] lengthCounterLookupTable = new byte[] { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
     }
 
     public class AudioBuffer
@@ -373,6 +405,7 @@ namespace DotNES.Core
         public byte LENGTH_COUNTER_LOAD { get; set; }      // 5 bits
 
         public int current_length_counter { get; set; } = 1;
+        public int sweep_period_counter { get; set; }
     }
 
     public class Triangle
