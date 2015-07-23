@@ -80,7 +80,6 @@ namespace DotNES.Mappers
             // PRG Select
             if ((ControlRegister & 0x08) == 0)
             {
-                Console.WriteLine("A");
                 PRGOffsets[0] = 0x4000 * (PRGSelect & 0xFE);
                 PRGOffsets[1] = 0x4000 * (PRGSelect | 0x01);
             }
@@ -91,13 +90,11 @@ namespace DotNES.Mappers
                 // If Control's Bit 2 is set, PRG is swapped at 0xC0000
                 if ((ControlRegister & 0x04) == 0)
                 {
-                    Console.WriteLine("B");
                     PRGOffsets[0] = 0;
                     PRGOffsets[1] = 0x4000 * PRGSelect;
                 }
                 else
                 {
-                    Console.WriteLine("C");
                     PRGOffsets[0] = 0x4000 * PRGSelect;
                     PRGOffsets[1] = 0x4000 * (cartridge.PRGROM_16KBankCount - 1);
                 }
@@ -110,7 +107,7 @@ namespace DotNES.Mappers
         {
             if(address < 0x6000)
             {
-                Console.WriteLine("Wat. {0:X4} {1:X2}", address, val);
+                // A couple of games have tried to write here. It's undefined behavior as far as I know.
                 return;
             }
 
@@ -119,6 +116,7 @@ namespace DotNES.Mappers
             {
                 int offset = address - 0x6000;
                 PRG_RAM[offset] = val;
+                return;
             }
             
 
@@ -132,8 +130,6 @@ namespace DotNES.Mappers
                 //updateOffsets();
                 return;
             }
-
-            Console.WriteLine("WRITE)");
 
             // We're shifting in a bit to the shift register..
             shift_register >>= 1;
@@ -154,8 +150,6 @@ namespace DotNES.Mappers
                         case 2: cartridge.NametableMirroring = NametableMirroringMode.Vertical; break;
                         case 3: cartridge.NametableMirroring = NametableMirroringMode.Horizontal; break;
                     }
-
-                    Console.WriteLine("Mirroring set to {0}", cartridge.NametableMirroring.ToString());
                 }
                 else if (address < 0xC000)
                 {

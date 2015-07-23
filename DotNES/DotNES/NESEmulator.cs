@@ -34,11 +34,11 @@ namespace DotNES
 
         private void initializeSystem()
         {
-            cart = new Cartridge("C:\\roms\\lolo.nes");
+            cart = new Cartridge("C:\\roms\\dk.nes");
             system = new NESConsole(cart);
             system.cpu.coldBoot();
             system.ppu.setLoggerEnabled(false);
-            system.cpu.setLoggerEnabled(true);
+            system.cpu.setLoggerEnabled(false);
             system.io.setLoggerEnabled(false);
         }
 

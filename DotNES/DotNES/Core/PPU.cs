@@ -430,17 +430,11 @@ namespace DotNES.Core
                 }
                 else if (console.cartridge.NametableMirroring == NametableMirroringMode.OneScreenLowBank)
                 {
-                    addr -= 0x2000;
-                    if (addr >= 0x800) addr -= 0x800;
-                    addr &= 0x3FF;
-                    return RAM[0x2000 + addr];
+                    return RAM[0x2000 |( addr & 0x3FF)];
                 }
                 else
                 {
-                    addr -= 0x2000;
-                    if (addr >= 0x800) addr -= 0x800;
-                    addr &= 0x3FF;
-                    return RAM[0x2400 + addr];
+                    return RAM[0x2400 | (addr & 0x3FF)];
                 }
             }
 
