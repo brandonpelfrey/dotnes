@@ -66,7 +66,9 @@ namespace DotNES.Core
                         pulse.DUTY = (byte)((val >> 6) & 0x3);
                         pulse.LENGTH_COUNTER_HALT = ((val >> 5) & 0x1) == 1;
                         pulse.CONSTANT_VOLUME = ((val >> 4) & 0x1) == 1;
-                        pulse.ENVELOPE_DIVIDER_PERIOD = (byte)(val & 0xF);
+                        pulse.ENVELOPE_DIVIDER_PERIOD_OR_VOLUME = (byte)(val & 0xF);
+                        pulse.envelope_volume = 15;
+                        pulse.envelope_counter = pulse.ENVELOPE_DIVIDER_PERIOD_OR_VOLUME;
                         break;
                     case 1: // 0x4001 or 0x4005
                         pulse.SWEEP_ENABLED = ((val >> 7) & 0x1) == 1;
@@ -233,9 +235,34 @@ namespace DotNES.Core
             }
 
             tickLinearCounter(TRIANGLE);
+            tickEnvelopCounter(PULSE_ONE);
+            tickEnvelopCounter(PULSE_TWO);
+
 
             writeFrameCounterAudio();
             tickLengthCounterAndSweep = !tickLengthCounterAndSweep;
+        }
+
+        private void tickEnvelopCounter(Pulse pulse)
+        {
+            if (pulse.envelope_counter == 0)
+            {
+                if (pulse.envelope_volume == 0)
+                {
+                    if(pulse.ENVELOPE_LOOP) {
+                        pulse.envelope_volume = 15;
+                    }
+                }
+                else
+                {
+                    pulse.envelope_volume--;
+                }
+                pulse.envelope_counter = pulse.ENVELOPE_DIVIDER_PERIOD_OR_VOLUME;
+            }
+            else
+            {
+                pulse.envelope_counter--;
+            }
         }
 
         private void tickLengthCounter(Pulse pulse)
@@ -288,7 +315,14 @@ namespace DotNES.Core
 
             double fractionalNormalizedSampleTime = normalizedSampleTime - Math.Floor(normalizedSampleTime);
             float dutyPulse = fractionalNormalizedSampleTime < dutyMap[pulse.DUTY] ? 1 : -1;
-            return dutyPulse * pulse.ENVELOPE_DIVIDER_PERIOD / 15;
+
+            byte volume = pulse.ENVELOPE_DIVIDER_PERIOD_OR_VOLUME;
+            if (!pulse.CONSTANT_VOLUME)
+            {
+                volume = pulse.envelope_volume;
+            }
+
+            return dutyPulse * volume / 15;
         }
 
         public float getTriangleAudio(Triangle triangle, int timeInSamples)
@@ -418,7 +452,7 @@ namespace DotNES.Core
         public byte DUTY { get; set; }                     // 2 bits
         public bool LENGTH_COUNTER_HALT { get; set; } = true;
         public bool CONSTANT_VOLUME { get; set; }
-        public byte ENVELOPE_DIVIDER_PERIOD { get; set; }  // 4 bits
+        public byte ENVELOPE_DIVIDER_PERIOD_OR_VOLUME { get; set; }  // 4 bits
 
         // 0x4001 or 0x4005
         public bool SWEEP_ENABLED { get; set; }
@@ -430,8 +464,13 @@ namespace DotNES.Core
         public ushort TIMER { get; set; }                  // 11 bits
         public byte LENGTH_COUNTER_LOAD { get; set; }      // 5 bits
 
+        // flag is shared with LENGTH_COUNTER_HALT 
+        public bool ENVELOPE_LOOP { get { return this.LENGTH_COUNTER_HALT; } }
+
         public int current_length_counter { get; set; } = 1;
         public int sweep_period_counter { get; set; }
+        public int envelope_counter { get; set; }
+        public byte envelope_volume { get; set; }
     }
 
     public class Triangle

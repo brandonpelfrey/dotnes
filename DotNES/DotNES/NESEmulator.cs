@@ -35,7 +35,7 @@ namespace DotNES
 
         private void initializeSystem()
         {
-            cart = new Cartridge("C:\\roms\\dk.nes");
+            cart = new Cartridge("C:\\roms\\lolo.nes");
             system = new NESConsole(cart);
             system.cpu.coldBoot();
             system.ppu.coldBoot();
