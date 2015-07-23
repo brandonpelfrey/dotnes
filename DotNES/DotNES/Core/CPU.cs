@@ -174,6 +174,7 @@ namespace DotNES
         private int BRK_Implied()
         {
             pushStack16(_PC);
+            _P |= 0x20;
             pushStack8(_P);
 
             _PC = console.memory.read16(0xFFFE);
@@ -1151,6 +1152,7 @@ namespace DotNES
         [OpCode(opcode = 0x08, name = "PHP", bytes = 1)]
         private int PHP()
         {
+            _P |= 0x20;
             pushStack8(_P);
             _PC += 1;
             return 3;

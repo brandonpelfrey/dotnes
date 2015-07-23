@@ -29,9 +29,13 @@ namespace DotNES.Core
             {
                 RAM[addr & 0x7FF] = val;
             }
-            else if (addr < 0x4000 || addr == 0x4014)
+            else if (addr < 0x4000)
             {
                 // 0x2000 - 0x2007 repeats every 8 bytes up until 0x3FFF
+                console.ppu.write((ushort)(0x2000 + (addr & 7)), val);
+            }
+            else if(addr == 0x4014)
+            {
                 // 0x4014 - writing $XX initiates OAM DMA from $XX00-$XXFF to PPU OAM Memory
                 console.ppu.write(addr, val);
             }
@@ -58,7 +62,7 @@ namespace DotNES.Core
             else if (addr < 0x4000)
             {
                 // 0x2000 - 0x2007 repeats every 8 bytes up until 0x3FFF
-                return console.ppu.read(addr);
+                return console.ppu.read((ushort)(0x2000 + (addr & 7)));
             }
             else if (addr < 0x4016)
             {

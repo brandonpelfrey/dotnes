@@ -132,7 +132,7 @@ namespace DotNES.Core
             // Compute color index
 
             int nt_index = nametable_tile_y * 32 + nametable_tile_x;
-            ushort pt_index = readRAM((ushort)(nametable_start + nt_index)); // TODO : Handle nametable mirroring properly
+            ushort pt_index = readRAM((ushort)(nametable_start + nt_index));
 
             int tile_x = nametable_x % 8;
             int tile_y = nametable_y % 8;
@@ -151,6 +151,14 @@ namespace DotNES.Core
 
             byte RGB_index = readRAM((ushort)(0x3F00 + 4 * palette_num + color_index));
             uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
+            if (false)
+            {
+                if (color_index == 0) pixelColor = 0xFF00FFFF;
+                if (color_index == 1) pixelColor = 0x0000FFFF;
+                if (color_index == 2) pixelColor = 0x00FF00FF;
+                if (color_index == 3) pixelColor = 0xFF0000FF;
+            }
+            
             _imageData[256 * py + px] = pixelColor;
         }
 
@@ -163,7 +171,7 @@ namespace DotNES.Core
             sprite_count = 0;
             for (byte oam_index = 0; oam_index < 64 && sprite_count < 8; ++oam_index)
             {
-                byte sprite_y = (byte)(OAM[oam_index * 4 + 0]+1);
+                byte sprite_y = (byte)(OAM[oam_index * 4 + 0] + 1);
                 int max_y_offset = mode816 ? 16 : 8;
 
                 if (scanline >= sprite_y && (scanline < sprite_y + max_y_offset))
@@ -191,7 +199,7 @@ namespace DotNES.Core
             {
                 int oam_index = oam_temp[spr_index];
 
-                byte sprite_y = (byte)(OAM[oam_index * 4 + 0]+1);
+                byte sprite_y = (byte)(OAM[oam_index * 4 + 0] + 1);
                 byte pt_index = OAM[oam_index * 4 + 1];
                 byte attributes = (byte)(OAM[oam_index * 4 + 2] & 0xE3); // There are several bits that are "unimplemented" (always return zero during read)
                 byte sprite_x = OAM[oam_index * 4 + 3];
@@ -207,6 +215,8 @@ namespace DotNES.Core
 
                 if (px - sprite_x >= 8 || px < sprite_x)
                     continue;
+
+                _imageData[image_index] = 0xFF0000FF;
 
                 if (mode816)
                 {
@@ -422,7 +432,7 @@ namespace DotNES.Core
             {
                 if (console.cartridge.NametableMirroring == NametableMirroringMode.Vertical)
                 {
-                    return addr >= 0x2800 ? RAM[addr - 0x800] : RAM[addr];
+                    return RAM[addr & 0xF7FF];
                 }
                 else if (console.cartridge.NametableMirroring == NametableMirroringMode.Horizontal)
                 {
@@ -430,7 +440,7 @@ namespace DotNES.Core
                 }
                 else if (console.cartridge.NametableMirroring == NametableMirroringMode.OneScreenLowBank)
                 {
-                    return RAM[0x2000 |( addr & 0x3FF)];
+                    return RAM[0x2000 | (addr & 0x3FF)];
                 }
                 else
                 {
@@ -479,7 +489,7 @@ namespace DotNES.Core
                 if (readAddress < 0x3F00)
                 {
                     returnValue = PPUDATA_ReadBuffer;
-                    PPUDATA_ReadBuffer = readRAM((ushort)(_PPUADDR & 0x3FFF));
+                    returnValue = PPUDATA_ReadBuffer = readRAM((ushort)(_PPUADDR & 0x3FFF));
                 }
                 else
                 {
@@ -525,6 +535,14 @@ namespace DotNES.Core
                 }
                 else if (addr == 0x2007)
                 {
+                    if (addr >= 0x2000 && addr < 0x3000)
+                    {
+                        //console.cpu.setLoggerEnabled(true);
+                        //console.cpu.printCPUState();
+                        //Console.WriteLine("{0:X4} <- {1:X2}", _PPUADDR, val);
+                        //console.cpu.setLoggerEnabled(false);
+                    }
+
                     // Write val to the location pointed to by PPUADDR
                     writeRAM((ushort)(_PPUADDR & 0x3FFF), val);
 

@@ -72,8 +72,7 @@ namespace DotNES.Core
                 log.error("ROM is PAL. This is unsupported...");
                 throw new NotImplementedException();
             }
-
-
+            
             if ((flag6 & 2) == 1)
             {
                 BatteryBackedRAM = true;

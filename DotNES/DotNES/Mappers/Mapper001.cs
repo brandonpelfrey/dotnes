@@ -49,18 +49,14 @@ namespace DotNES.Mappers
                 return PRG_RAM[offset];
             }
 
-            if (address >= 0xC000)
-                return cartridge.PRGRomData[PRGOffsets[1] + (address - 0xC000)];
-            else
-                return cartridge.PRGRomData[PRGOffsets[0] + (address - 0x8000)];
+            int bank = (address - 0x8000) / 0x4000;
+            return cartridge.PRGRomData[PRGOffsets[bank] + (address &0x3FFF)];
         }
 
         public override byte readCHR(ushort address)
         {
-            if (address < 0x1000)
-                return cartridge.CHRRomData[CHROffsets[0] + (address - 0x0000)];
-            else
-                return cartridge.CHRRomData[CHROffsets[1] + (address - 0x1000)];
+            int bank = address / 0x1000;
+            return cartridge.CHRRomData[CHROffsets[bank] + (address & 0xFFF)];
         }
 
         private void updateOffsets()
@@ -68,20 +64,20 @@ namespace DotNES.Mappers
             // CHR0 and CHR1
             if ((ControlRegister & 0x10) == 0)
             {
-                CHROffsets[0] = 0x2000 * CHR0Select;
-                CHROffsets[1] = 0x2000 * CHR0Select + 0x1000;
+                CHROffsets[0] = 0x1000 * (CHR0Select & 0x1E);
+                CHROffsets[1] = CHROffsets[0] + 0x1000;
             }
             else
             {
-                CHROffsets[0] = 0x1000 * CHR0Select;
-                CHROffsets[1] = 0x1000 * CHR1Select;
+                CHROffsets[0] = 0x1000 * (CHR0Select & 0x1F);
+                CHROffsets[1] = 0x1000 * (CHR1Select & 0x1F);
             }
 
             // PRG Select
             if ((ControlRegister & 0x08) == 0)
             {
-                PRGOffsets[0] = 0x4000 * (PRGSelect & 0xFE);
-                PRGOffsets[1] = 0x4000 * (PRGSelect | 0x01);
+                PRGOffsets[0] = 0x4000 * (PRGSelect & 0x0E);
+                PRGOffsets[1] = PRGOffsets[0] + 0x4000;
             }
             else
             {
@@ -127,7 +123,7 @@ namespace DotNES.Mappers
                 ControlRegister |= 0x0C;
                 shift_register_write_counter = 0;
 
-                //updateOffsets();
+                updateOffsets();
                 return;
             }
 
@@ -143,6 +139,8 @@ namespace DotNES.Mappers
                 {
                     ControlRegister = shift_register;
 
+                    NametableMirroringMode oldMode = cartridge.NametableMirroring;
+
                     switch (ControlRegister & 3)
                     {
                         case 0: cartridge.NametableMirroring = NametableMirroringMode.OneScreenLowBank; break;
@@ -150,6 +148,9 @@ namespace DotNES.Mappers
                         case 2: cartridge.NametableMirroring = NametableMirroringMode.Vertical; break;
                         case 3: cartridge.NametableMirroring = NametableMirroringMode.Horizontal; break;
                     }
+
+                    if (oldMode != cartridge.NametableMirroring)
+                        Console.WriteLine("Switched to {0}", cartridge.NametableMirroring.ToString());
                 }
                 else if (address < 0xC000)
                 {
@@ -161,7 +162,8 @@ namespace DotNES.Mappers
                 }
                 else
                 {
-                    PRGSelect = shift_register & 0x0F;
+                    Console.WriteLine("Switched to PRG {0}", shift_register & 0x0F);
+                    PRGSelect = shift_register;
                 }
 
                 // Update offsets
