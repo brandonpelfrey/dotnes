@@ -234,7 +234,7 @@ namespace DotNES.Core
                     if (color_index > 0)
                     {
                         // TODO : Respect BG/Sprite precedence
-                        if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                        if (inFrontOfBG || 0 == backgroundCHRValue)
                         {
                             // Sprite Zero Hit?
                             if (oam_index == 0 && 0 != backgroundCHRValue && backgroundRenderingEnabled())
@@ -274,7 +274,6 @@ namespace DotNES.Core
                             // Sprite Zero Hit?
                             if (oam_index == 0 && 0 != backgroundCHRValue && backgroundRenderingEnabled())
                             {
-                                Console.WriteLine("asd");
                                 _PPUSTATUS |= 0x40;
                             }
 

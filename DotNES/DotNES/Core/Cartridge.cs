@@ -87,7 +87,7 @@ namespace DotNES.Core
             PRGRomData = new ArraySegment<byte>(fullRomData, prgStart, prgBytes).ToArray();
 
             int chrStart = prgStart + prgBytes;
-            int chrBytes = 8192 * CHRROM_8KBankCount;
+            int chrBytes = 0x2000 * CHRROM_8KBankCount;
             CHRRomData = new ArraySegment<byte>(fullRomData, chrStart, chrBytes).ToArray();
 
             log.info("ROM Details --");
