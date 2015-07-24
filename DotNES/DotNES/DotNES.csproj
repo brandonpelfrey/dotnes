@@ -80,6 +80,7 @@
     <Compile Include="Mappers\Mapper002.cs" />
     <Compile Include="Mappers\Mapper000.cs" />
     <Compile Include="Mappers\Mapper003.cs" />
+    <Compile Include="Mappers\Mapper004.cs" />
     <Compile Include="Mappers\MapperAttribute.cs" />
     <Compile Include="NESEmulator.cs" />
     <Compile Include="Program.cs" />

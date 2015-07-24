@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DotNES
@@ -34,9 +35,11 @@ namespace DotNES
 
         private void initializeSystem()
         {
-            cart = new Cartridge("C:\\roms\\nestest.nes");
+            cart = new Cartridge("C:\\roms\\dk.nes");
             system = new NESConsole(cart);
             system.cpu.coldBoot();
+            system.ppu.coldBoot();
+
             system.ppu.setLoggerEnabled(false);
             system.cpu.setLoggerEnabled(false);
             system.io.setLoggerEnabled(false);

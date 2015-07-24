@@ -31,6 +31,7 @@ namespace DotNES.Core
         private NESConsole console;
 
         private bool oddFrame = false;
+        int write_toggle = 0;
 
         // We are not yet at a point where care to emulate the NTSC palette generation
         // If we get to that point, look at the generators/documentation 
@@ -158,7 +159,7 @@ namespace DotNES.Core
                 if (color_index == 2) pixelColor = 0x00FF00FF;
                 if (color_index == 3) pixelColor = 0xFF0000FF;
             }
-            
+
             _imageData[256 * py + px] = pixelColor;
         }
 
@@ -173,7 +174,7 @@ namespace DotNES.Core
             {
                 byte sprite_y = (byte)(OAM[oam_index * 4 + 0] + 1);
                 int max_y_offset = mode816 ? 16 : 8;
-
+                
                 if (scanline >= sprite_y && (scanline < sprite_y + max_y_offset))
                 {
                     oam_temp[sprite_count] = oam_index;
@@ -184,7 +185,6 @@ namespace DotNES.Core
 
         private void drawSprites(int px, int py)
         {
-            uint universalBackgroundColor = RGBA_PALETTE[readRAM(0x3F00)];
             byte backgroundCHRValue = backgroundCHRValues[256 * py + px];
 
             // Are we drawing 8x16 sprites?
@@ -193,7 +193,7 @@ namespace DotNES.Core
             int image_index = py * 256 + px;
 
             if ((_PPUMASK & 4) == 0 && px < 8) return;
-
+            
             // Check each sprite 
             for (int spr_index = 0; spr_index < sprite_count; ++spr_index)
             {
@@ -208,7 +208,7 @@ namespace DotNES.Core
                 bool inFrontOfBG = (attributes & 0x20) == 0;
                 bool flipHorizontal = (attributes & 0x40) != 0;
                 bool flipVertical = (attributes & 0x80) != 0;
-
+                
                 // Sprites are never drawn on if their y-coord is 0
                 if (sprite_y == 0 || sprite_y >= 240)
                     continue;
@@ -216,7 +216,9 @@ namespace DotNES.Core
                 if (px - sprite_x >= 8 || px < sprite_x)
                     continue;
 
-                _imageData[image_index] = 0xFF0000FF;
+                // Clipping when the left-most 8 pixels are disabled
+                if (px < 8 && (_PPUMASK & 0x1E) != 0x1E)
+                    continue;
 
                 if (mode816)
                 {
@@ -258,7 +260,6 @@ namespace DotNES.Core
                             _imageData[image_index] = pixelColor;
                         }
                     }
-
                 }
                 else
                 {
@@ -267,7 +268,7 @@ namespace DotNES.Core
 
                     int i = flipHorizontal ? 7 - ti : ti;
                     int j = flipVertical ? 7 - tj : tj;
-
+                    
                     ushort sprite_pattern_table_base = (ushort)((_PPUCTRL & 8) == 0 ? 0x0000 : 0x1000);
                     byte lowBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j));
                     byte highBits = getPatternTable((ushort)(sprite_pattern_table_base + pt_index * 16 + j + 8));
@@ -275,18 +276,19 @@ namespace DotNES.Core
                     byte lowBit = (byte)((lowBits >> (7 - i)) & 1);
                     byte highBit = (byte)((highBits >> (7 - i)) & 1);
                     byte color_index = (byte)(lowBit + highBit * 2);
-
+                    
                     if (color_index > 0)
                     {
-                        // TODO : Respect BG/Sprite precedence
-                        if (inFrontOfBG || _imageData[image_index] == universalBackgroundColor)
+                        // Sprite Zero Hit?
+                        bool sprite_zero_hit = oam_index == 0 && 0 != backgroundCHRValue && px < 255;
+                        if (backgroundRenderingEnabled() && sprite_zero_hit)
                         {
-                            // Sprite Zero Hit?
-                            if (oam_index == 0 && 0 != backgroundCHRValue && backgroundRenderingEnabled())
-                            {
-                                _PPUSTATUS |= 0x40;
-                            }
+                            _PPUSTATUS |= 0x40;
+                        }
 
+                        // TODO : Respect BG/Sprite precedence
+                        if (inFrontOfBG || 0 == backgroundCHRValue)
+                        {
                             uint RGB_index = readRAM((ushort)(0x3F10 + palette_number * 4 + color_index));
                             uint pixelColor = RGBA_PALETTE[RGB_index & 0x3F];
 
@@ -307,7 +309,6 @@ namespace DotNES.Core
             // Should we draw the sprites?
             if ((_PPUMASK & 0x10) != 0)
                 drawSprites(px, py);
-
         }
 
         private byte[] RAM = new byte[0x4000];
@@ -337,20 +338,31 @@ namespace DotNES.Core
         public PPU(NESConsole console)
         {
             this.console = console;
+            for (int i = 0; i < 0x4000; ++i)
+                RAM[i] = 0;
         }
 
         public void render_step()
         {
             // The first pre-scanline (-1) alternates every scanline between 340 and 341 pixels.
             // For all other scanlines, the scanline is 341 pixels [0,340].
-            // Actual visible pixels are [0,256), with [256,340] dedicated to preparing for sprites 
+            // Actual visible pixels are [1,256], with [257,340] dedicated to preparing for sprites 
             // in the following scanline.
 
             // There are 262 total scanlines per frame:
             // -1      : Pre-scanline        0-239   : Visible scanlines
             // 240     : Nada?               241-260 : Vertical Blanking
 
-            if (x == 256)
+            if(scanline == -1 && x == 0)
+            {
+                // We're no longer in VBlank region
+                _PPUSTATUS &= 0x7F;
+
+                // Clear Sprite Zero Hit
+                _PPUSTATUS &= 0xBF;
+            }
+
+            if (x == 257)
             {
                 computeSpritesForScanline(scanline + 1);
             }
@@ -361,21 +373,22 @@ namespace DotNES.Core
                 assembleImage(x - 1, scanline);
             }
 
-            // At the very start of the VBlank region, let the CPU know.
+            // 241 starts the VBlank region.
             if (scanline == 241 && x == 1)
+            {
+                // At the very start of the VBlank region, let the CPU know.
                 _PPUSTATUS |= 0x80;
 
-            // Potentially trigger NMI at the start of VBlank
-            if ((byte)(_PPUCTRL & 0x80) != 0 && scanline == 241 && x == 1)
-            {
-                console.cpu.nmi = true;
+                // Potentially trigger NMI at the start of VBlank
+                if ((byte)(_PPUCTRL & 0x80) != 0)
+                    console.cpu.nmi = true;
             }
 
             x++;
 
             // Variable line width for the pre-scanline depending on even/odd frame
-            int columns_this_frame = oddFrame && scanline == -1 ? 341 : 340;
-            if (x == columns_this_frame + 1)
+            int columns_this_frame = backgroundRenderingEnabled() && oddFrame && scanline == -1 ? 340 : 341;
+            if (x == columns_this_frame)
             {
                 scanline++;
                 x = 0;
@@ -383,12 +396,6 @@ namespace DotNES.Core
 
             if (scanline == 261)
             {
-                // We're no longer in VBlank region
-                _PPUSTATUS = (byte)(_PPUSTATUS & 0x7F);
-
-                // Clear Sprite Zero Hit
-                _PPUSTATUS &= 0xBF;
-
                 scanline = -1;
                 _frameCount++;
                 oddFrame = _frameCount % 2 == 1;
@@ -418,7 +425,7 @@ namespace DotNES.Core
         // Abstract grabbing data from the pattern tables since it could either be in VRAM, or directly mapped to CHR-ROM via the mapper
         private byte getPatternTable(ushort address)
         {
-            if (true && console.mapper.mapsCHR())
+            if (true && console.mapper.mapsCHR() && console.cartridge.CHRROM_8KBankCount > 0)
             {
                 return console.mapper.readCHR(address);
             }
@@ -474,11 +481,12 @@ namespace DotNES.Core
             }
             else if (addr == 0x2002)
             {
-                // Reading the status register clears the "NMI Occurred" flag, but still returns
+                // Reading the status register clears the "We're in VBlank" flag, but still returns
                 // the old value of the register before clearing the flag.
                 byte result = _PPUSTATUS;
                 _PPUSTATUS &= (0x7F);
-                return result;
+                write_toggle = 0;
+                return (byte)((result & 0xe0) | (PPUDATA_ReadBuffer & 0x1f));
             }
             else if (addr == 0x2007)
             {
@@ -489,7 +497,7 @@ namespace DotNES.Core
                 if (readAddress < 0x3F00)
                 {
                     returnValue = PPUDATA_ReadBuffer;
-                    returnValue = PPUDATA_ReadBuffer = readRAM((ushort)(_PPUADDR & 0x3FFF));
+                    PPUDATA_ReadBuffer = readRAM((ushort)(_PPUADDR & 0x3FFF));
                 }
                 else
                 {
@@ -501,6 +509,7 @@ namespace DotNES.Core
 
                 return returnValue;
             }
+
             Console.WriteLine(string.Format("Unimplemented read to PPU @ {0:X}", addr));
             return 0;
         }
@@ -527,11 +536,14 @@ namespace DotNES.Core
                 else if (addr == 0x2005)
                 {
                     _PPUSCROLL = (ushort)((_PPUSCROLL << 8) | val);
+                    write_toggle ^= 1;
                 }
                 else if (addr == 0x2006)
                 {
                     // The user can set a VRAM address to write to by writing to PPUADDR twice in succession.
+                    if (write_toggle == 0) val &= 0x7F;
                     _PPUADDR = (ushort)((_PPUADDR << 8) | (val & 0xFF));
+                    write_toggle ^= 1;
                 }
                 else if (addr == 0x2007)
                 {
@@ -541,6 +553,11 @@ namespace DotNES.Core
                         //console.cpu.printCPUState();
                         //Console.WriteLine("{0:X4} <- {1:X2}", _PPUADDR, val);
                         //console.cpu.setLoggerEnabled(false);
+                    }
+
+                    if (addr >= 0x3F00)
+                    {
+                        Console.WriteLine("{0:X4} <- {1:X2}", _PPUADDR, val);
                     }
 
                     // Write val to the location pointed to by PPUADDR
