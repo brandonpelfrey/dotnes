@@ -97,18 +97,25 @@ namespace DotNES.Core
                     case 0x4008:
                         TRIANGLE.LENGTH_COUNTER_HALT = (((val >> 7) & 0x1) == 1);
                         TRIANGLE.LINEAR_COUNTER_LOAD = (byte)(val & 0x7F);
+                        TRIANGLE.current_linear_counter = TRIANGLE.LINEAR_COUNTER_LOAD;
+                        break;
+                    case 0x4009: // Unused register
                         break;
                     case 0x400A:
                         TRIANGLE.TIMER = (ushort)((TRIANGLE.TIMER & 0xFF00) | val);
                         break;
                     case 0x400B:
                         TRIANGLE.LENGTH_COUNTER_LOAD = (byte)((val >> 3) & 0x1F);
+                        TRIANGLE.current_length_counter = lengthCounterLookupTable[TRIANGLE.LENGTH_COUNTER_LOAD];
+                        TRIANGLE.current_linear_counter = TRIANGLE.LINEAR_COUNTER_LOAD;
                         TRIANGLE.TIMER = (ushort)((TRIANGLE.TIMER & 0x00FF) | ((val & 0x7) << 8));
                         break;
                     case 0x400C:
                         NOISE.ENVELOPE_LOOP = (((val >> 5) & 0x1) == 1);
                         NOISE.CONSTANT_VOLUME = (((val >> 4) & 0x1) == 1);
                         NOISE.VOLUME_ENVELOP = (byte)(val & 0xF);
+                        break;
+                    case 0x400D: // Unused register
                         break;
                     case 0x400E:
                         NOISE.LOOP_NOISE = (((val >> 7) & 0x1) == 1);
@@ -230,6 +237,7 @@ namespace DotNES.Core
             {
                 tickLengthCounter(PULSE_ONE);
                 tickLengthCounter(PULSE_TWO);
+                tickLengthCounter(TRIANGLE);
                 tickSweep(PULSE_ONE);
                 tickSweep(PULSE_TWO);
             }
@@ -273,6 +281,18 @@ namespace DotNES.Core
                 if (pulse.current_length_counter < 0)
                 {
                     pulse.current_length_counter = 0;
+                }
+            }
+        }
+
+        private void tickLengthCounter(Triangle triangle)
+        {
+            if (!triangle.LENGTH_COUNTER_HALT)
+            {
+                triangle.current_length_counter -= 1;
+                if (triangle.current_length_counter < 0)
+                {
+                    triangle.current_length_counter = 0;
                 }
             }
         }
@@ -350,7 +370,7 @@ namespace DotNES.Core
 
         public float getTriangleAudio(Triangle triangle, int timeInSamples)
         {
-            if (!triangle.ENABLED || triangle.LINEAR_COUNTER_LOAD == 0)
+            if (!triangle.ENABLED || triangle.current_linear_counter == 0 || triangle.current_length_counter == 0)
             {
                 return 0.0f;
             }
@@ -507,6 +527,9 @@ namespace DotNES.Core
         // 0x400A - 0x400B
         public ushort TIMER { get; set; }                  // 11 bits
         public byte LENGTH_COUNTER_LOAD { get; set; }      // 5 bits
+
+        public int current_length_counter { get; set; } = 0;
+        public int current_linear_counter { get; set; } = 0;
     }
 
     public class Noise
