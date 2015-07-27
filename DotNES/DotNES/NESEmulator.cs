@@ -113,8 +113,6 @@ namespace DotNES
             long startingFrame = system.ppu.FrameCount;
             int steps = 0;
 
-            system.apu.writeFrameAudio();
-
             while (true)
             {
                 system.step();

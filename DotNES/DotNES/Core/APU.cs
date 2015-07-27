@@ -38,10 +38,6 @@ namespace DotNES.Core
         FrameCounterMode FRAME_COUNTER_MODE;
         bool IRQ_INHIBIT;
 
-        public void step()
-        {
-        }
-
         public byte read(ushort addr)
         {
             // TODO: Support read to 0x4015 (I believe this is the only valid register read for the APU)
@@ -153,23 +149,59 @@ namespace DotNES.Core
 
         }
 
-        int sampleRate = 48000;
-        int samplesPerFrame = 800;
-        int samplesPerAPUFrameTick = 200; // samples per frame / 4;
-        int timeInSamples = 0;
-        int frame = 0;
-
-        public void writeFrameAudio()
+        int extraCpuCycle = 0;
+        public void step(int cpuCycles)
         {
-            frame++;
+            cpuCycles += extraCpuCycle;
+            for (int i = 0; i < cpuCycles / 2; i++)
+                apuStep();
+            extraCpuCycle = cpuCycles & 0x1;
+        }
 
-            for (int i = 0; i < samplesPerFrame; i++)
+        private int apuStepCounter = 0;
+
+        //Execute a APU frame counter tick after these number apu ticks
+        //Documentation http://wiki.nesdev.com/w/index.php/APU_Frame_Counter
+        private void apuStep()
+        {
+            apuStepCounter++;
+            switch (apuStepCounter)
             {
-                if (i % samplesPerAPUFrameTick == 0)
-                {
+                case 3728:
+                case 7456:
+                case 11185:
                     APUFrameTick();
-                }
+                    break;
+                case 14914:
+                    APUFrameTick();
+                    apuStepCounter = 0;
+                    break;
+                default:
+                    break;
+            }
+        }
 
+        const int sampleRate = 48000;
+        const int samplesPerFrame = 800;
+        const int samplesPerAPUFrameTick = samplesPerFrame / 4;
+        int timeInSamples = 0;
+        int apuFrameTicksTillAudio = 40;
+
+        public void writeFrameCounterAudio()
+        {
+            //Audio fails if we start right away, so waiting to build audio buffer for 10 frames
+            //TODO handle better
+            if (apuFrameTicksTillAudio > -1)
+            {
+                apuFrameTicksTillAudio--;
+            }
+            if (apuFrameTicksTillAudio == 0)
+            {
+                waveOut.Play();
+            }
+
+            for (int i = 0; i < samplesPerAPUFrameTick; i++)
+            {
                 float pulseOne = getPulseAudio(PULSE_ONE, timeInSamples);
                 float pulseTwo = getPulseAudio(PULSE_TWO, timeInSamples);
                 float tri = getTriangleAudio(TRIANGLE, timeInSamples);
@@ -177,13 +209,6 @@ namespace DotNES.Core
                 //TODO we can't just add these together, should use actual or approximation of actual mixer
                 audioBuffer.write(pulseOne + pulseTwo + tri);
                 timeInSamples++;
-            }
-
-            //Audio fails if we start right away, so waiting to build audio buffer for 10 frames
-            //TODO handle better
-            if (frame == 10)
-            {
-                waveOut.Play();
             }
 
             if (timeInSamples > 10000000)
@@ -209,6 +234,7 @@ namespace DotNES.Core
 
             tickLinearCounter(TRIANGLE);
 
+            writeFrameCounterAudio();
             tickLengthCounterAndSweep = !tickLengthCounterAndSweep;
         }
 
